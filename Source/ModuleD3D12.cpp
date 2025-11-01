@@ -44,7 +44,7 @@ swapChainDesc.Stereo = FALSE;
 swapChainDesc.SampleDesc = { 1, 0 };
 swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 
-swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+swapChainDesc.Scaling = DXGI_SCALING_NONE;
 swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
 swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
@@ -101,6 +101,10 @@ commandList->Close();
 }
 
 void ModuleD3D12::preRender() {
+    if (pendingResize) {
+        resize();
+    }
+
     commandAllocator->Reset();
 
     commandList->Reset(commandAllocator.Get(), nullptr);
@@ -175,12 +179,18 @@ bool ModuleD3D12::cleanUp() {
     return true;
 }
 
-void ModuleD3D12::resize(UINT width, UINT height)
+void ModuleD3D12::requestResize(UINT width, UINT height) {
+    pendingResize = true;
+    newWidth = width;
+    newHeight = height;
+}
+
+void ModuleD3D12::resize()
 {
-    if (!device || !swapChain)
+    if (!swapChain)
         return;
 
-    // Wait until the GPU is done with all resources
+    // Wait until GPU finishes current work
     const UINT64 fenceToWait = ++fenceCounter;
     commandQueue->Signal(fence.Get(), fenceToWait);
     if (fence->GetCompletedValue() < fenceToWait) {
@@ -188,26 +198,31 @@ void ModuleD3D12::resize(UINT width, UINT height)
         WaitForSingleObject(fenceEvent, INFINITE);
     }
 
-    // Release old render targets
+    // Release old resources
     for (UINT i = 0; i < FrameCount; ++i)
         renderTargets[i].Reset();
+    commandAllocator.Reset();
+    commandList.Reset();
 
-    // Resize swap chain buffers
+    // Resize the swap chain
     DXGI_SWAP_CHAIN_DESC desc = {};
     swapChain->GetDesc(&desc);
-    HRESULT hr = swapChain->ResizeBuffers(FrameCount, width, height, desc.BufferDesc.Format, desc.Flags);
-    if (FAILED(hr))
-        return;
+    swapChain->ResizeBuffers(FrameCount, newWidth, newHeight, desc.BufferDesc.Format, desc.Flags);
 
-    frameIndex = swapChain->GetCurrentBackBufferIndex();
-
-    // Recreate render target views
+    // Recreate RTVs
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
-    for (UINT n = 0; n < FrameCount; n++)
-    {
+    for (UINT n = 0; n < FrameCount; ++n) {
         swapChain->GetBuffer(n, IID_PPV_ARGS(&renderTargets[n]));
         device->CreateRenderTargetView(renderTargets[n].Get(), nullptr, rtvHandle);
         rtvHandle.Offset(1, rtvDescriptorSize);
     }
 
+    frameIndex = swapChain->GetCurrentBackBufferIndex();
+
+    device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator));
+    device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList));
+    commandList->Close();
+
+    pendingResize = false;
 }
+

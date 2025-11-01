@@ -88,5 +88,5 @@ void Application::resize(UINT width, UINT height)
 {
     auto ModRender = getModule<ModuleD3D12>();
     if (ModRender)
-        ModRender->resize(width, height);
+        ModRender->requestResize(width, height);
 }

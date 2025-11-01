@@ -12,7 +12,7 @@ public:
 	void render() override;
 	void postRender() override;
 	bool cleanUp() override;
-	void resize(UINT width, UINT height);
+	void requestResize(UINT width, UINT height);
 	
 	ID3D12Device2* getDevice() const { return device.Get(); }
 	HWND getWindowHandle() const { return hWnd; }
@@ -20,6 +20,8 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE getCurrentRTV() const { return CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex,rtvDescriptorSize); }
 
 private:
+	void resize();
+
 	HWND hWnd;
 
 	Microsoft::WRL::ComPtr<IDXGIFactory6> factory; 
@@ -45,5 +47,9 @@ private:
 	HANDLE fenceEvent = nullptr;
 
 	bool allowTearing = true;
+
+	bool pendingResize = false;
+	UINT newWidth = 0;
+	UINT newHeight = 0;
 
 };

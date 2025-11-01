@@ -21,10 +21,10 @@ void ModuleEditor::preRender() {
     if (showDemo)
         ImGui::ShowDemoWindow(&showDemo);
 
-    ImGui::Begin("Editor");
+    /*ImGui::Begin("Editor");
     ImGui::Text("Hello, Editor!");
     ImGui::Checkbox("Show ImGui Demo", &showDemo);
-    ImGui::End();
+    ImGui::End();*/
 }
 
 void ModuleEditor::render() {
