@@ -1,0 +1,124 @@
+# -----------------------------
+# Visual Studio / C++ / DX12 project
+# -----------------------------
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+*.log
+
+# Intermediate files
+*.obj
+*.pch
+*.pdb
+*.idb
+*.ipdb
+*.iobj
+*.ilk
+*.tlog
+*.tmp
+*.cache
+*.user
+*.suo
+*.sdf
+*.db
+*.opendb
+*.VC.db
+*.VC.opendb
+
+# Auto-generated files
+*.aps
+*.ncb
+*.res
+*.rsp
+*.sbr
+*.pch
+*.manifest
+
+# Build outputs
+*.exe
+*.dll
+*.lib
+*.exp
+
+# DirectX / Shader intermediate
+*.hlsl.h
+*.cso
+*.ps
+*.vs
+*.hs
+*.ds
+*.gs
+
+# ImGui / external libraries builds
+**/Debug/
+**/Release/
+**/x64/
+**/x86/
+**/ARM*/
+**/Win32/
+
+# Visual Studio user-specific files
+.vs/
+*.user
+*.userosscache
+*.userprefs
+*.opensdf
+*.sln.docstates
+
+# Crash / profiling data
+*.dmp
+*.opendb
+*.iobj
+*.ipch
+*.pdb
+
+# Backup / autosave
+*~
+*.bak
+*.swp
+
+# Temporary test files
+*.tlog
+*.tmp
+
+# CMake / MSBuild intermediates (if you ever add them)
+CMakeFiles/
+CMakeCache.txt
+build/
+out/
+
+# -----------------------------
+# Engine-specific assets
+# -----------------------------
+# Don’t track compiled shaders, binaries, or Visual Studio auto-generated folders.
+# Do track your actual source code, headers, shaders, and ImGui source files.
+!**/imgui.h
+!**/imgui*.cpp
+!**/backends/imgui_impl_*.cpp
+!**/backends/imgui_impl_*.h
+!**/imstb_*.h
+
+# Ignore build/output folders
+x64/
+Debug/
+Release/
+.vs/
+
+# Ignore compiled shaders and binaries
+*.cso
+*.exe
+*.dll
+*.pdb
+*.lib
+*.tlog
+*.cache
+*.obj
+
+# Ignore intermediate DirectXTex compiled assets
+Source/3rdParty/DirectXTex/Shaders/Compiled/
+
+# Keep source shader files
+!Source/3rdParty/DirectXTex/Shaders/*.hlsl
+!Source/3rdParty/DirectXTex/Shaders/*.h
