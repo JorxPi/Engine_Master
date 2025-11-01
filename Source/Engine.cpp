@@ -231,6 +231,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED) {
+            UINT width = LOWORD(lParam);
+            UINT height = HIWORD(lParam);
+            app->resize(width, height);
             app->setPaused(true);
         }
         else {

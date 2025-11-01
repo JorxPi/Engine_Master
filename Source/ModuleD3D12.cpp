@@ -174,3 +174,40 @@ bool ModuleD3D12::cleanUp() {
 
     return true;
 }
+
+void ModuleD3D12::resize(UINT width, UINT height)
+{
+    if (!device || !swapChain)
+        return;
+
+    // Wait until the GPU is done with all resources
+    const UINT64 fenceToWait = ++fenceCounter;
+    commandQueue->Signal(fence.Get(), fenceToWait);
+    if (fence->GetCompletedValue() < fenceToWait) {
+        fence->SetEventOnCompletion(fenceToWait, fenceEvent);
+        WaitForSingleObject(fenceEvent, INFINITE);
+    }
+
+    // Release old render targets
+    for (UINT i = 0; i < FrameCount; ++i)
+        renderTargets[i].Reset();
+
+    // Resize swap chain buffers
+    DXGI_SWAP_CHAIN_DESC desc = {};
+    swapChain->GetDesc(&desc);
+    HRESULT hr = swapChain->ResizeBuffers(FrameCount, width, height, desc.BufferDesc.Format, desc.Flags);
+    if (FAILED(hr))
+        return;
+
+    frameIndex = swapChain->GetCurrentBackBufferIndex();
+
+    // Recreate render target views
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
+    for (UINT n = 0; n < FrameCount; n++)
+    {
+        swapChain->GetBuffer(n, IID_PPV_ARGS(&renderTargets[n]));
+        device->CreateRenderTargetView(renderTargets[n].Get(), nullptr, rtvHandle);
+        rtvHandle.Offset(1, rtvDescriptorSize);
+    }
+
+}

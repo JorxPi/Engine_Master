@@ -12,6 +12,7 @@ public:
 	void render() override;
 	void postRender() override;
 	bool cleanUp() override;
+	void resize(UINT width, UINT height);
 	
 	ID3D12Device2* getDevice() const { return device.Get(); }
 	HWND getWindowHandle() const { return hWnd; }

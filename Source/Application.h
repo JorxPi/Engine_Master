@@ -28,6 +28,8 @@ public:
     bool                        isPaused() const { return paused; }
     bool                        setPaused(bool p) { paused = p; return paused; }
 
+    void                        resize(UINT width, UINT height);
+
     template <typename T>
     T* getModule()
     {
