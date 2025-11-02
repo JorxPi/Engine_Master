@@ -12,7 +12,7 @@ bool ModuleD3D12::init() {
     ComPtr<ID3D12Debug> debugInterface;
     D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface));
     debugInterface->EnableDebugLayer();
-    OutputDebugString(L"[D3D12] Debug layer enabled\n");
+    LOG("Debug layer enabled");
 #endif
 
 #if defined(_DEBUG)
@@ -88,6 +88,8 @@ device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&com
 //Command list
 device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator.Get(), nullptr, IID_PPV_ARGS(&commandList));
 commandList->Close();
+
+LOG("Device initialized successfully.");
 
 #if defined(_DEBUG)
     ComPtr<ID3D12InfoQueue> infoQueue;
