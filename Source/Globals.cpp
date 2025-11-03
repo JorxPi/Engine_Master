@@ -20,5 +20,5 @@ void log(const char file[], int line, const char* format, ...)
 	sprintf_s(tmp_string2, 4095, "%s(%d) : %s", filename, line, tmp_string);
 	OutputDebugStringA(tmp_string2);
 
-	app->getModule<ModuleEditor>()->log(tmp_string2);
+	app->getModule<ModuleEditor>()->logg(tmp_string2);
 }

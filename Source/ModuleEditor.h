@@ -14,11 +14,11 @@ public:
 	void render() override;
 	void postRender() override;
 
-	void log(const char* format, ...);
+	void logg(const char* format, ...);
 
-	void drawAppInfo();
+	void drawAppInfo() const;
 	void drawWindowOptions();
-	void drawHardwareOptions();
+	void drawHardwareOptions() const;
 
 private:
 	HWND hWnd = nullptr;
