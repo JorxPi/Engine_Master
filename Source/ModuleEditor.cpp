@@ -28,6 +28,8 @@ void ModuleEditor::preRender() {
         {
             ImGui::MenuItem("Console", nullptr, &showConsole);
             ImGui::MenuItem("Documentation (ImGui Demo)", nullptr, &showDemo);
+            ImGui::MenuItem("About", nullptr, &showAbout); 
+
             ImGui::EndMenu();
         }
 
@@ -38,6 +40,13 @@ void ModuleEditor::preRender() {
         }
 
         ImGui::EndMainMenuBar();
+
+        ImGuiDockNodeFlags dockspaceFlags =
+            ImGuiDockNodeFlags_PassthruCentralNode |
+            ImGuiDockNodeFlags_NoDockingOverCentralNode;
+
+        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockspaceFlags);
+
     }
 
     if (showConsole)
@@ -50,7 +59,7 @@ void ModuleEditor::preRender() {
     {
         ImGui::Begin("Configuration", &showConfig);
 
-        if (ImGui::CollapsingHeader("Application", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Application"))
             drawAppInfo();
 
         if (ImGui::CollapsingHeader("Window"))
@@ -58,6 +67,32 @@ void ModuleEditor::preRender() {
 
         if (ImGui::CollapsingHeader("Hardware"))
             drawHardwareOptions();
+
+        ImGui::End();
+    }
+
+    if (showAbout)
+    {
+        ImGui::SetNextWindowSize(ImVec2(400, 250), ImGuiCond_FirstUseEver);
+        ImGui::Begin("About", &showAbout);
+
+        ImGui::Text("My Engine: %s", "Engine_Master");
+
+        ImGui::Separator();
+        ImGui::TextWrapped("This is the Engine in C++ using DirectX12 for rendering that I will be updating and using to learn during my Master in Advanced Programming for AAA Videogames in UPC");
+
+        ImGui::Separator();
+        ImGui::Text("Author: %s", "Jordi Pi Moreno");
+
+        ImGui::Separator();
+        ImGui::Text("Libraries used:");
+        ImGui::BulletText("Dear ImGui %s", IMGUI_VERSION);
+        ImGui::BulletText("DirectX 12 (D3D12)");
+        ImGui::BulletText("C++ Standard Library");
+
+        ImGui::Separator();
+        ImGui::Text("License: MIT License");
+        ImGui::TextDisabled("(c) 2025 Jordi Pi. All rights reserved.");
 
         ImGui::End();
     }

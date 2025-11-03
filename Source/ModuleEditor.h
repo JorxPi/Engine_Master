@@ -29,5 +29,7 @@ private:
 	bool showConsole = false;  
 	bool showDemo = false;
 	bool showConfig = false;
+	bool showAbout = false;
+
 
 };
