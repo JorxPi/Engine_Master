@@ -25,24 +25,65 @@
 *.db
 *.opendb
 *.VC.db
-*.VC.opendb
+# -----------------------------
+# Visual Studio / C++ / DX12
+# -----------------------------
 
-# Auto-generated files
+# Build/result folders
+[Bb]in/
+[Oo]bj/
+x64/
+x86/
+ARM*/
+Win32/
+Debug/
+Release/
+out/
+build/
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.userprefs
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.opendb
+
+# Logs
+[Ll]og/
+*.log
+
+# Intermediates / caches
+*.obj
+*.pch
+*.pdb
+*.idb
+*.ipdb
+*.iobj
+*.ilk
+*.tlog
+*.tmp
+*.cache
+*.suo
+*.sdf
+*.db
 *.aps
 *.ncb
 *.res
 *.rsp
 *.sbr
-*.pch
 *.manifest
+*.ipch
 
-# Build outputs
+# Binaries
 *.exe
 *.dll
 *.lib
 *.exp
 
-# DirectX / Shader intermediate
+# DirectX / shader intermediates
 *.hlsl.h
 *.cso
 *.ps
@@ -51,74 +92,45 @@
 *.ds
 *.gs
 
-# ImGui / external libraries builds
-**/Debug/
-**/Release/
-**/x64/
-**/x86/
-**/ARM*/
-**/Win32/
-
-# Visual Studio user-specific files
-.vs/
-*.user
-*.userosscache
-*.userprefs
-*.opensdf
-*.sln.docstates
-
-# Crash / profiling data
+# Crash / profiling
 *.dmp
-*.opendb
-*.iobj
-*.ipch
-*.pdb
 
-# Backup / autosave
+# Backups / editors
 *~
 *.bak
 *.swp
 
-# Temporary test files
-*.tlog
-*.tmp
-
-# CMake / MSBuild intermediates (if you ever add them)
+# CMake (if used)
 CMakeFiles/
 CMakeCache.txt
-build/
-out/
 
 # -----------------------------
-# Engine-specific assets
+# Third-party sources you may vendor (keep these)
 # -----------------------------
-# Don’t track compiled shaders, binaries, or Visual Studio auto-generated folders.
-# Do track your actual source code, headers, shaders, and ImGui source files.
 !**/imgui.h
 !**/imgui*.cpp
 !**/backends/imgui_impl_*.cpp
 !**/backends/imgui_impl_*.h
 !**/imstb_*.h
 
-# Ignore build/output folders
-x64/
-Debug/
-Release/
-.vs/
-
-# Ignore compiled shaders and binaries
-*.cso
-*.exe
-*.dll
-*.pdb
-*.lib
-*.tlog
-*.cache
-*.obj
-
-# Ignore intermediate DirectXTex compiled assets
+# If you vendor DirectXTex shaders, keep sources but ignore compiled
 Source/3rdParty/DirectXTex/Shaders/Compiled/
-
-# Keep source shader files
 !Source/3rdParty/DirectXTex/Shaders/*.hlsl
 !Source/3rdParty/DirectXTex/Shaders/*.h
+
+# -----------------------------
+# Game assets & PIX runtime
+# -----------------------------
+# Track the Game folder and everything inside…
+!Game/
+!Game/**
+
+# …but still ignore binaries inside Game/
+Game/**/*.exe
+Game/**/*.dll
+Game/**/*.lib
+Game/**/*.pdb
+
+# Exception: keep the PIX runtime DLL tracked
+!Game/WinPixEventRuntime.dll
+
