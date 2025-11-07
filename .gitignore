@@ -15,16 +15,6 @@
 *.idb
 *.ipdb
 *.iobj
-*.ilk
-*.tlog
-*.tmp
-*.cache
-*.user
-*.suo
-*.sdf
-*.db
-*.opendb
-*.VC.db
 # -----------------------------
 # Visual Studio / C++ / DX12
 # -----------------------------
@@ -32,14 +22,10 @@
 # Build/result folders
 [Bb]in/
 [Oo]bj/
-x64/
 x86/
 ARM*/
 Win32/
-Debug/
 Release/
-out/
-build/
 
 # Visual Studio
 .vs/
@@ -121,16 +107,27 @@ Source/3rdParty/DirectXTex/Shaders/Compiled/
 # -----------------------------
 # Game assets & PIX runtime
 # -----------------------------
-# Track the Game folder and everything inside…
+# Track the Game folder and everything inside
 !Game/
 !Game/**
 
-# …but still ignore binaries inside Game/
+# Ignore binaries inside Game except PIX runtime
 Game/**/*.exe
 Game/**/*.dll
 Game/**/*.lib
 Game/**/*.pdb
-
-# Exception: keep the PIX runtime DLL tracked
 !Game/WinPixEventRuntime.dll
+
+# -----------------------------
+# Build output exception for PIX runtime
+# -----------------------------
+# Normally ignore all build/out/x64/Debug artifacts...
+build/
+out/
+x64/
+Debug/
+
+# ...but keep the PIX runtime DLL even inside Debug folder
+!Source/build/out/x64/Debug/WinPixEventRuntime.dll
+
 
