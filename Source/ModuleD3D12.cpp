@@ -136,26 +136,14 @@ void ModuleD3D12::postRender() {
     else
         swapChain->Present(1, 0);
 
-    const UINT64 currentFence = ++fenceCounter;
-    commandQueue->Signal(fence.Get(), currentFence);
-
-    if (fence->GetCompletedValue() < currentFence)
-    {
-        fence->SetEventOnCompletion(currentFence, fenceEvent);
-        WaitForSingleObject(fenceEvent, INFINITE);
-    }
+    flush();
 
     frameIndex = swapChain->GetCurrentBackBufferIndex();
 }
 
 bool ModuleD3D12::cleanUp() {
     if (commandQueue && fence) {
-        const UINT64 fenceToWait = ++fenceCounter;
-        commandQueue->Signal(fence.Get(), fenceToWait);
-        if (fence->GetCompletedValue() < fenceToWait) {
-            fence->SetEventOnCompletion(fenceToWait, fenceEvent);
-            WaitForSingleObject(fenceEvent, INFINITE);
-        }
+        flush();
     }
 
     if (fenceEvent) {
@@ -192,26 +180,17 @@ void ModuleD3D12::resize()
     if (!swapChain)
         return;
 
-    // Wait until GPU finishes current work
-    const UINT64 fenceToWait = ++fenceCounter;
-    commandQueue->Signal(fence.Get(), fenceToWait);
-    if (fence->GetCompletedValue() < fenceToWait) {
-        fence->SetEventOnCompletion(fenceToWait, fenceEvent);
-        WaitForSingleObject(fenceEvent, INFINITE);
-    }
+    flush();
 
-    // Release old resources
     for (UINT i = 0; i < FrameCount; ++i)
         renderTargets[i].Reset();
     commandAllocator.Reset();
     commandList.Reset();
 
-    // Resize the swap chain
     DXGI_SWAP_CHAIN_DESC desc = {};
     swapChain->GetDesc(&desc);
     swapChain->ResizeBuffers(FrameCount, newWidth, newHeight, desc.BufferDesc.Format, desc.Flags);
 
-    // Recreate RTVs
     CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(rtvHeap->GetCPUDescriptorHandleForHeapStart());
     for (UINT n = 0; n < FrameCount; ++n) {
         swapChain->GetBuffer(n, IID_PPV_ARGS(&renderTargets[n]));
@@ -226,5 +205,14 @@ void ModuleD3D12::resize()
     commandList->Close();
 
     pendingResize = false;
+}
+
+void ModuleD3D12::flush() {
+    const UINT64 fenceToWait = ++fenceCounter;
+    commandQueue->Signal(fence.Get(), fenceToWait);
+    //if (fence->GetCompletedValue() < fenceToWait) {
+        fence->SetEventOnCompletion(fenceToWait, fenceEvent);
+        WaitForSingleObject(fenceEvent, INFINITE);
+    //}
 }
 

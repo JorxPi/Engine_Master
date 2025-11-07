@@ -3,6 +3,7 @@
 #include "ModuleInput.h"
 #include "ModuleD3D12.h"
 #include "ModuleEditor.h"
+#include "ModuleResources.h"
 
 
 Application::Application(int argc, wchar_t** argv, void* hWnd)
@@ -10,6 +11,7 @@ Application::Application(int argc, wchar_t** argv, void* hWnd)
     modules.push_back(new ModuleInput((HWND)hWnd));
     modules.push_back(new ModuleEditor((HWND)hWnd));
     modules.push_back(new ModuleD3D12((HWND)hWnd));
+    modules.push_back(new ModuleResources());
 }
 
 Application::~Application()

@@ -13,6 +13,7 @@ public:
 	void postRender() override;
 	bool cleanUp() override;
 	void requestResize(UINT width, UINT height);
+	void flush();
 	
 	ID3D12Device2* getDevice() const { return device.Get(); }
 	HWND getWindowHandle() const { return hWnd; }

@@ -35,8 +35,8 @@ public:
     {
         for (Module* module : modules)
         {
-            if (auto casted = dynamic_cast<T*>(module))
-                return casted;
+            if (auto returnedModule = dynamic_cast<T*>(module))
+                return returnedModule;
         }
         return nullptr;
     }
