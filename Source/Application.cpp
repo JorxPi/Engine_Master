@@ -4,6 +4,9 @@
 #include "ModuleD3D12.h"
 #include "ModuleEditor.h"
 #include "ModuleResources.h"
+#include "ModulePipeline.h"
+#include "ModuleCameraEditor.h"
+#include "ModuleSampler.h"
 
 
 Application::Application(int argc, wchar_t** argv, void* hWnd)
@@ -12,6 +15,9 @@ Application::Application(int argc, wchar_t** argv, void* hWnd)
     modules.push_back(new ModuleEditor((HWND)hWnd));
     modules.push_back(new ModuleD3D12((HWND)hWnd));
     modules.push_back(new ModuleResources());
+    modules.push_back(new ModuleCameraEditor());
+    modules.push_back(new ModuleSampler());
+    modules.push_back(new ModulePipeline());
 }
 
 Application::~Application()
@@ -26,6 +32,7 @@ Application::~Application()
  
 bool Application::init()
 {
+    timer.start();
 	bool ret = true;
 
 	for(auto it = modules.begin(); it != modules.end() && ret; ++it)
@@ -33,6 +40,8 @@ bool Application::init()
 
     lastMilis = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
+    timer.stop();
+    LOG("Time to initialize application: %lld", timer.read())
 	return ret;
 }
 
@@ -88,7 +97,9 @@ bool Application::cleanUp()
 
 void Application::resize(UINT width, UINT height)
 {
-    auto ModRender = getModule<ModuleD3D12>();
-    if (ModRender)
-        ModRender->requestResize(width, height);
+    if (auto modRender = getModule<ModuleD3D12>())
+        modRender->requestResize(width, height);
+
+    if (auto cam = getModule<ModuleCameraEditor>())
+        cam->requestResize(width, height);
 }

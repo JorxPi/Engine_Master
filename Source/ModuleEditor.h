@@ -4,6 +4,9 @@
 #include "ImGuiPass.h"
 #include "LogConsole.h"
 
+class ModuleCameraEditor;
+class ModulePipeline;
+
 class ModuleEditor : public Module
 {
 public:
@@ -12,13 +15,30 @@ public:
 	bool postInit() override;
 	void preRender() override;
 	void render() override;
-	void postRender() override;
 
 	void logg(const char* format, ...);
 
+	void drawDocSpace();
+
+	// View
+	void drawConsoleWindow();
+	void drawImGuiDocWindow();
+	void drawAboutWindow();
+
+	// Options
+	void drawConfigWindow();
 	void drawAppInfo() const;
 	void drawWindowOptions();
 	void drawHardwareOptions() const;
+
+	// Camera
+	void drawCameraWindow(ModuleCameraEditor* camMod);
+
+	// Texture
+	void drawTextureSamplesWindow(ModulePipeline* pipe);
+	void drawTextureGridWindow(ModulePipeline* pipe);
+	void drawTextureChangeWindow(ModulePipeline* pipe);
+
 
 private:
 	HWND hWnd = nullptr;
@@ -30,6 +50,10 @@ private:
 	bool showDemo = false;
 	bool showConfig = false;
 	bool showAbout = false;
+	bool showCameraWindow = false;
+	bool showTextureSamples = false;
+	bool showTextureGrid = false;
+	bool showTextureChange = false;
 
 
 };

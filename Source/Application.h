@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Globals.h"
+#include "Timer.h"
 
 #include <array>
 #include <vector>
@@ -30,6 +31,9 @@ public:
 
     void                        resize(UINT width, UINT height);
 
+    void        addMouseWheel(float wheel) { mouseWheelAccum += wheel; }
+    float       consumeMouseWheel() { float w = mouseWheelAccum; mouseWheelAccum = 0.0f; return w; }
+
     template <typename T>
     T* getModule()
     {
@@ -53,6 +57,9 @@ private:
     uint64_t  tickSum = 0;
     uint64_t  elapsedMilis = 0;
     bool      paused = false;
+
+    Timer timer;
+    float mouseWheelAccum = 0.0f;
 };
 
 extern Application* app;

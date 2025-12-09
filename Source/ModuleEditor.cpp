@@ -2,6 +2,8 @@
 #include "Application.h"
 #include "ModuleEditor.h"
 #include "ModuleD3D12.h"
+#include "ModulePipeline.h"
+#include "ModuleCameraEditor.h"
 #include "imgui.h"
 #include <thread>
 
@@ -12,15 +14,20 @@ ModuleEditor::ModuleEditor(HWND windowHandle)
 
 bool ModuleEditor::postInit() {
 	auto modRender = app->getModule<ModuleD3D12>();
-	if (modRender) {imguiPass = std::make_unique<ImGuiPass>(modRender->getDevice(), modRender->getWindowHandle());}
+    if (!modRender) return false;
 
-	LOG("Console initialized successfully!");
+    imguiPass = std::make_unique<ImGuiPass>(modRender->getDevice(), modRender->getWindowHandle());
+    if (imguiPass) LOG("Console initialized successfully!");
 
-	return true;
+    return imguiPass != nullptr;
 }
 
 void ModuleEditor::preRender() {
+    if (!imguiPass) return;
     imguiPass->startFrame();
+
+    auto* pipe = app->getModule<ModulePipeline>();
+    auto* cam = app->getModule<ModuleCameraEditor>();
 
     if (ImGui::BeginMainMenuBar())
     {
@@ -39,38 +46,74 @@ void ModuleEditor::preRender() {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Camera")) 
+        {
+            ImGui::MenuItem("Camera Controls", nullptr, &showCameraWindow);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Texture"))
+        {
+            ImGui::MenuItem("Samples", nullptr, &showTextureSamples);
+            ImGui::MenuItem("Debug Grid", nullptr, &showTextureGrid);
+            ImGui::MenuItem("Change Texture", nullptr, &showTextureChange);
+            ImGui::EndMenu();
+        }
+
         ImGui::EndMainMenuBar();
 
-        ImGuiDockNodeFlags dockspaceFlags =
-            ImGuiDockNodeFlags_PassthruCentralNode |
-            ImGuiDockNodeFlags_NoDockingOverCentralNode;
-
-        ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockspaceFlags);
+        drawDocSpace();
 
     }
 
+    drawConsoleWindow();
+    drawImGuiDocWindow();
+    drawAboutWindow();
+
+    drawConfigWindow();
+
+    drawCameraWindow(cam);
+
+    drawTextureSamplesWindow(pipe);
+    drawTextureGridWindow(pipe);
+    drawTextureChangeWindow(pipe);
+}
+
+void ModuleEditor::render() {
+	auto modRender = app->getModule<ModuleD3D12>();
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = modRender->getCurrentRTV();
+	imguiPass->record(modRender->getCommandList(), rtv);
+}
+
+void ModuleEditor::logg(const char* format, ...) {
+    char buffer[1024];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    logConsole.addLog(buffer);
+}
+
+void ModuleEditor::drawDocSpace() {
+    ImGuiDockNodeFlags dockspaceFlags =
+        ImGuiDockNodeFlags_PassthruCentralNode |
+        ImGuiDockNodeFlags_NoDockingOverCentralNode;
+
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockspaceFlags);
+}
+
+void ModuleEditor::drawConsoleWindow() {
     if (showConsole)
         logConsole.draw("Console", &showConsole);
+}
 
+void ModuleEditor::drawImGuiDocWindow() {
     if (showDemo)
         ImGui::ShowDemoWindow(&showDemo);
+}
 
-    if (showConfig)
-    {
-        ImGui::Begin("Configuration", &showConfig);
-
-        if (ImGui::CollapsingHeader("Application"))
-            drawAppInfo();
-
-        if (ImGui::CollapsingHeader("Window"))
-            drawWindowOptions();
-
-        if (ImGui::CollapsingHeader("Hardware"))
-            drawHardwareOptions();
-
-        ImGui::End();
-    }
-
+void ModuleEditor::drawAboutWindow() {
     if (showAbout)
     {
         ImGui::SetNextWindowSize(ImVec2(400, 250), ImGuiCond_FirstUseEver);
@@ -98,29 +141,25 @@ void ModuleEditor::preRender() {
     }
 }
 
-void ModuleEditor::render() {
-	auto modRender = app->getModule<ModuleD3D12>();
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv = modRender->getCurrentRTV();
-	imguiPass->record(modRender->getCommandList(), rtv);
+void ModuleEditor::drawConfigWindow() {
+    if (showConfig)
+    {
+        ImGui::Begin("Configuration", &showConfig);
+
+        if (ImGui::CollapsingHeader("Application"))
+            drawAppInfo();
+
+        if (ImGui::CollapsingHeader("Window"))
+            drawWindowOptions();
+
+        if (ImGui::CollapsingHeader("Hardware"))
+            drawHardwareOptions();
+
+        ImGui::End();
+    }
 }
 
-void ModuleEditor::postRender() {
-
-}
-
-void ModuleEditor::logg(const char* format, ...)
-{
-    char buffer[1024];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-
-    logConsole.addLog(buffer);
-}
-
-void ModuleEditor::drawAppInfo() const
-{
+void ModuleEditor::drawAppInfo() const {
     static std::array<float, 100> fps_log = {};
     static std::array<float, 100> ms_log = {};
     static int logIndex = 0;
@@ -161,8 +200,7 @@ void ModuleEditor::drawAppInfo() const
     ImGui::PlotHistogram( "##Milliseconds", ms_log.data(), static_cast<int>(ms_log.size()), logIndex, nullptr, 0.0f, 40.0f, graphSize);
 }
 
-void ModuleEditor::drawWindowOptions()
-{
+void ModuleEditor::drawWindowOptions() {
     static bool fullscreen = false;
     static bool resizable = true;
     static int width = 1280;
@@ -191,7 +229,6 @@ void ModuleEditor::drawWindowOptions()
     {
         if (fullscreen)
         {
-            // store current windowed position before going fullscreen
             GetWindowRect(hWnd, &lastWindowedRect);
             resizable = false;
             LOG("Switching to fullscreen mode");
@@ -216,7 +253,6 @@ void ModuleEditor::drawWindowOptions()
             int restoredWidth = lastWindowedRect.right - lastWindowedRect.left;
             int restoredHeight = lastWindowedRect.bottom - lastWindowedRect.top;
 
-            // restore to previous windowed position and size
             SetWindowPos(hWnd, HWND_TOP,
                 lastWindowedRect.left, lastWindowedRect.top,
                 restoredWidth, restoredHeight,
@@ -264,15 +300,13 @@ void ModuleEditor::drawWindowOptions()
         GetWindowRect(hWnd, &rect);
         SetWindowPos(hWnd, nullptr, rect.left, rect.top, width, height, SWP_SHOWWINDOW);
 
-        // update last windowed rect so it's remembered correctly
         GetWindowRect(hWnd, &lastWindowedRect);
     }
 }
 
 
 
-void ModuleEditor::drawHardwareOptions() const
-{
+void ModuleEditor::drawHardwareOptions() const {
     ImGui::Text("CPU cores: %d", std::thread::hardware_concurrency());
 
     MEMORYSTATUSEX memInfo;
@@ -293,5 +327,152 @@ void ModuleEditor::drawHardwareOptions() const
             ImGui::Text("GPU: %ls", desc.Description);
             ImGui::Text("VRAM: %.1f MB", static_cast<double>(desc.DedicatedVideoMemory) / (1024.0f * 1024.0f));
         }
+    }
+}
+
+void ModuleEditor::drawCameraWindow(ModuleCameraEditor* camMod) {
+    if (!showCameraWindow) return;
+
+    if (!ImGui::Begin("Camera Controls", &showCameraWindow)) { ImGui::End(); return; }
+
+    if (camMod)
+    {
+        const Camera& cam = camMod->readCamera();
+
+        // --- Position ---
+        {
+            auto pos = cam.position;
+            if (ImGui::DragFloat3("Position", &pos.x, 0.1f))
+                camMod->setPosition(pos);
+        }
+
+        ImGui::Separator();
+
+        // --- LookAt ---
+        {
+            ImGui::Text("Look At");
+
+            static float targetDistance = 10.0f;
+            static Vector3 target = Vector3::Zero;
+            static bool wasEditing = false;
+
+            Vector3 forward = Vector3::Transform(Vector3::Forward, cam.orientation);
+            forward.Normalize();
+            Vector3 derivedTarget = cam.position + forward * targetDistance;
+
+            if (!wasEditing)
+                target = derivedTarget;
+
+            ImGui::DragFloat3("Target", &target.x, 0.1f);
+
+            const bool editingNow = ImGui::IsItemActive();
+            const bool finishedEdit = ImGui::IsItemDeactivatedAfterEdit();
+            wasEditing = editingNow;
+
+            // when user finishes editing, rotate camera to look at it
+            if (finishedEdit)
+            {
+                targetDistance = (target - cam.position).Length();
+                if (targetDistance < 0.001f) targetDistance = 0.001f;
+
+                camMod->setLookAt(target, Vector3::Up);
+            }
+
+            ImGui::SliderFloat("Target distance", &targetDistance, 0.5f, 200.0f);
+        }
+
+        ImGui::Separator();
+
+        // --- Projection params ---
+        {
+            float fovX = cam.fovX;
+            if (ImGui::SliderAngle("FOV X (horizontal)", &fovX, 10.0f, 120.0f))
+                camMod->setFOV(fovX);
+
+            float nearP = cam.nearPlane;
+            float farP = cam.farPlane;
+
+            bool planesChanged = false;
+            planesChanged |= ImGui::DragFloat("Near Plane", &nearP, 0.01f, 0.001f, 100.0f);
+            planesChanged |= ImGui::DragFloat("Far Plane", &farP, 1.0f, 1.0f, 5000.0f);
+
+            if (planesChanged)
+                camMod->setPlaneDistances(nearP, farP);
+        }
+    }
+
+    ImGui::End();
+}
+
+void ModuleEditor::drawTextureSamplesWindow(ModulePipeline* pipe) {
+    if (!showTextureSamples) return;
+
+    if (!ImGui::Begin("Samples", &showTextureSamples)) { ImGui::End(); return; }
+
+    if (pipe)
+    {
+        static int samplerIdx = 0;
+        const char* items[] = {
+            "Linear Wrap",
+            "Linear Clamp",
+            "Point Wrap",
+            "Point Clamp"
+        };
+
+        if (ImGui::Combo("Sampler Mode", &samplerIdx, items, IM_ARRAYSIZE(items)))
+        {
+            pipe->setSamplerIndex(samplerIdx);
+        }
+    }
+
+    ImGui::End();
+    
+}
+
+void ModuleEditor::drawTextureGridWindow(ModulePipeline* pipe) {
+    if (!showTextureGrid) return;
+    
+    if (!ImGui::Begin("Grid", &showTextureGrid)) { ImGui::End(); return; }
+
+    if (pipe)
+    {
+        bool grid = pipe->getShowGrid();
+        if (ImGui::Checkbox("Show Grid", &grid))
+            pipe->setShowGrid(grid);
+
+        bool axis = pipe->getShowAxis();
+        if (ImGui::Checkbox("Show Axis", &axis))
+            pipe->setShowAxis(axis);
+    }
+
+    ImGui::End();
+    
+}
+
+void ModuleEditor::drawTextureChangeWindow(ModulePipeline* pipe)
+{
+    if (!showTextureChange) return;
+
+    if (!ImGui::Begin("Change Texture", &showTextureChange)) { ImGui::End(); return; }
+
+    if (pipe) {
+
+        static int texIdx = 0;
+        const char* items[] = { "Popcorn (JPG)", "Dog (DDS)" };
+
+        if (ImGui::Combo("Texture", &texIdx, items, IM_ARRAYSIZE(items)))
+        {
+            const wchar_t* path = (texIdx == 0)
+                ? L"Assets/Textures/popcorn.jpg"
+                : L"Assets/Textures/dog.dds";
+
+            if (!pipe->setTextureFromFile(path))
+            {
+                logg("Failed to load texture: %ls", path);
+            }
+        }
+
+        ImGui::Text("Current: %ls", pipe->getTexturePath());
+        ImGui::End();
     }
 }

@@ -2,13 +2,18 @@
 
 #include "Module.h"
 
+using Microsoft::WRL::ComPtr;
+
 class ModuleResources : public Module
 {
 public:
 	ModuleResources();
 
-	void createUploadBuffer();
+	ComPtr<ID3D12Resource> createUploadBuffer(const void* data, UINT64 sizeInBytes);
 
-	void createDefaultBuffer();
+	ComPtr<ID3D12Resource> createDefaultBuffer(const void* data, UINT64 sizeInBytes);
+
+	ComPtr<ID3D12Resource> createTextureFromFile(const wchar_t* filePath);
+
 private:
 };

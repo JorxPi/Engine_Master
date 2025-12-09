@@ -16,12 +16,32 @@
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="ImGuiPass.cpp" />
     <ClCompile Include="Keyboard.cpp" />
-    <ClCompile Include="ModuleD3D12.cpp" />
-    <ClCompile Include="ModuleInput.cpp" />
     <ClCompile Include="Mouse.cpp" />
     <ClCompile Include="SimpleMath.cpp" />
     <ClCompile Include="LogConsole.cpp">
       <Filter>EditorClasses</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleD3D12.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleEditor.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleInput.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleResources.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ModulePipeline.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="ModuleCameraEditor.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleSampler.cpp">
+      <Filter>Modules</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -40,9 +60,6 @@
     <ClInclude Include="Globals.h" />
     <ClInclude Include="ImGuiPass.h" />
     <ClInclude Include="Keyboard.h" />
-    <ClInclude Include="Module.h" />
-    <ClInclude Include="ModuleD3D12.h" />
-    <ClInclude Include="ModuleInput.h" />
     <ClInclude Include="Mouse.h" />
     <ClInclude Include="PlatformHelpers.h" />
     <ClInclude Include="ReadData.h" />
@@ -51,6 +68,32 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="LogConsole.h">
       <Filter>EditorClasses</Filter>
+    </ClInclude>
+    <ClInclude Include="par_shapes.h" />
+    <ClInclude Include="Module.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleD3D12.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleEditor.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleInput.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleResources.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ModulePipeline.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h" />
+    <ClInclude Include="ModuleCameraEditor.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleSampler.h">
+      <Filter>Modules</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -62,10 +105,25 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="SimpleMath.inl" />
+    <None Include="imgui.ini" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="EditorClasses">
       <UniqueIdentifier>{66bdc0e2-4aad-446b-9a6d-7c8f12b258b0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Modules">
+      <UniqueIdentifier>{403467cd-9195-401a-a503-51ffe4fe79fc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{b5756902-e790-4890-be44-d34401c64209}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="ExerciseQuadPix.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="ExerciseQuadVer.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
