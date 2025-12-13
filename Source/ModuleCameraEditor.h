@@ -3,6 +3,8 @@
 #include "Module.h"
 #include <SimpleMath.h>
 
+constexpr float THRESHOLD = 1e-8f;
+
 using namespace DirectX::SimpleMath;
 
 struct Camera
@@ -25,7 +27,7 @@ public:
 	ModuleCameraEditor();
 	void update() override;
 	void updateWASD(float dt);
-	void rightClickDrag(float dx, float dy);
+	void applyMouseLook(float dx, float dy);
 	void altRightClickZoom(float dy);
 	void mouseWheelZoom(float wheel);
 	void orbitDrag(float dx, float dy);

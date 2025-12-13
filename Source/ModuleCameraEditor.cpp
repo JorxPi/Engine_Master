@@ -77,9 +77,6 @@ void ModuleCameraEditor::update()
         wasRmbDown = true;
         lastMouse = cur;
 
-        wasOrbitDown = false;
-
-        const bool altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
         rmbMode = altDown ? RMBMode::Zoom : RMBMode::Rotate;
         return;
     }
@@ -89,7 +86,7 @@ void ModuleCameraEditor::update()
     lastMouse = cur;
 
     if (rmbMode == RMBMode::Rotate) {
-        rightClickDrag(dx, dy);
+        applyMouseLook(dx, dy);
         updateWASD(dt);
 
         isFocused = false;
@@ -114,7 +111,7 @@ void ModuleCameraEditor::updateWASD(float dt) {
     if (GetAsyncKeyState('E') & 0x8000) move += up;
     if (GetAsyncKeyState('Q') & 0x8000) move -= up;
 
-    if (move.LengthSquared() > 1e-8f) {
+    if (move.LengthSquared() > THRESHOLD) {
         move.Normalize();
         camera.position += move * speed * dt;
         viewDirty = true;
@@ -123,7 +120,7 @@ void ModuleCameraEditor::updateWASD(float dt) {
     }
 }
 
-void ModuleCameraEditor::rightClickDrag(float dx, float dy) {
+void ModuleCameraEditor::applyMouseLook(float dx, float dy) {
     float deltaYaw = -dx * lookSensitivity;
     float deltaPitch = -dy * lookSensitivity;
 
@@ -133,43 +130,37 @@ void ModuleCameraEditor::rightClickDrag(float dx, float dy) {
     forward.Normalize();
     up.Normalize();
 
-    if (fabsf(deltaYaw) > 1e-6f) {
-        Quaternion qYaw = Quaternion::CreateFromAxisAngle(Vector3::Up, deltaYaw);
-        forward = Vector3::Transform(forward, qYaw);
-        up = Vector3::Transform(up, qYaw);
-    }
+    Quaternion qYaw = Quaternion::CreateFromAxisAngle(Vector3::Up, deltaYaw);
+    forward = Vector3::Transform(forward, qYaw);
+    up = Vector3::Transform(up, qYaw);
 
     Vector3 right = forward.Cross(up);
-    if (right.LengthSquared() < 1e-8f) {
+    if (right.LengthSquared() < THRESHOLD) {
         right = Vector3::Right;
     }
     right.Normalize();
     up = right.Cross(forward);
     up.Normalize();
 
-    if (fabsf(deltaPitch) > 1e-6f) {
-        Quaternion qPitch = Quaternion::CreateFromAxisAngle(right, deltaPitch);
+    Quaternion qPitch = Quaternion::CreateFromAxisAngle(right, deltaPitch);
 
-        Vector3 newForward = Vector3::Transform(forward, qPitch);
-        Vector3 newUp = Vector3::Transform(up, qPitch);
+    Vector3 newForward = Vector3::Transform(forward, qPitch);
+    Vector3 newUp = Vector3::Transform(up, qPitch);
 
-        newForward.Normalize();
-        newUp.Normalize();
+    newForward.Normalize();
+    newUp.Normalize();
 
-        float maxY = sinf(pitchLimit);
-        if (fabsf(newForward.y) <= maxY) {
-            forward = newForward;
-            up = newUp;
+    float maxY = sinf(pitchLimit);
+    forward = newForward;
+    up = newUp;
 
-            right = forward.Cross(up);
-            if (right.LengthSquared() < 1e-8f) {
-                right = Vector3::Right;
-            }
-            right.Normalize();
-            up = right.Cross(forward);
-            up.Normalize();
-        }
+    right = forward.Cross(up);
+    if (right.LengthSquared() < THRESHOLD) {
+        right = Vector3::Right;
     }
+    right.Normalize();
+    up = right.Cross(forward);
+    up.Normalize();
 
     Matrix worldM = Matrix::CreateWorld(Vector3::Zero, forward, up);
     camera.orientation = Quaternion::CreateFromRotationMatrix(worldM);
@@ -204,65 +195,16 @@ void ModuleCameraEditor::mouseWheelZoom(float wheel)
     viewDirty = true;
 }
 
-    void ModuleCameraEditor::orbitDrag(float dx, float dy)
-    {
-        float deltaYaw = -dx * lookSensitivity;
-        float deltaPitch = -dy * lookSensitivity;
+void ModuleCameraEditor::orbitDrag(float dx, float dy)
+{
+    applyMouseLook(dx, dy);
 
-        Vector3 forward = Vector3::Transform(Vector3::Forward, camera.orientation);
-        Vector3 up = Vector3::Transform(Vector3::Up, camera.orientation);
+    Vector3 forward = Vector3::Transform(Vector3::Forward, camera.orientation);
+    forward.Normalize();
+    camera.position = pivot - forward * orbitDistance;
 
-        forward.Normalize();
-        up.Normalize();
-
-        if (fabsf(deltaYaw) > 1e-6f) {
-            Quaternion qYaw = Quaternion::CreateFromAxisAngle(Vector3::Up, deltaYaw);
-            forward = Vector3::Transform(forward, qYaw);
-            up = Vector3::Transform(up, qYaw);
-        }
-
-        Vector3 right = forward.Cross(up);
-        if (right.LengthSquared() < 1e-8f) {
-            right = Vector3::Right;
-        }
-        right.Normalize();
-        up = right.Cross(forward);
-        up.Normalize();
-
-        if (fabsf(deltaPitch) > 1e-6f) {
-            Quaternion qPitch = Quaternion::CreateFromAxisAngle(right, deltaPitch);
-
-            Vector3 newForward = Vector3::Transform(forward, qPitch);
-            Vector3 newUp = Vector3::Transform(up, qPitch);
-
-            newForward.Normalize();
-            newUp.Normalize();
-
-            float maxY = sinf(pitchLimit);
-            if (fabsf(newForward.y) <= maxY) {
-                forward = newForward;
-                up = newUp;
-
-                right = forward.Cross(up);
-                if (right.LengthSquared() < 1e-8f) {
-                    right = Vector3::Right;
-                }
-                right.Normalize();
-                up = right.Cross(forward);
-                up.Normalize();
-            }
-        }
-
-        Matrix worldM = Matrix::CreateWorld(Vector3::Zero, forward, up);
-        camera.orientation = Quaternion::CreateFromRotationMatrix(worldM);
-        camera.orientation.Normalize();
-
-        forward = Vector3::Transform(Vector3::Forward, camera.orientation);
-        forward.Normalize();
-        camera.position = pivot - forward * orbitDistance;
-
-        viewDirty = true;
-    }
+    viewDirty = true;
+}
 
 
 void ModuleCameraEditor::focusOnGeometry()
@@ -348,13 +290,13 @@ void ModuleCameraEditor::setOrientation(const Quaternion& q)
 
 void ModuleCameraEditor::setLookAt(const Vector3& target, const Vector3& worldUp)
 {
-    Vector3 dir = target - camera.position;
-    if (dir.LengthSquared() < 1e-10f) return;
+    Vector3 direction = target - camera.position;
+    if (direction.LengthSquared() < THRESHOLD) return;
 
-    dir.Normalize();
+    direction.Normalize();
 
-    yaw = atan2f(dir.x, -dir.z);
-    pitch = asinf(dir.y);
+    yaw = atan2f(direction.x, -direction.z);
+    pitch = asinf(direction.y);
     pitch = std::clamp(pitch, -pitchLimit, pitchLimit);
 
     camera.orientation = Quaternion::CreateFromYawPitchRoll(yaw, pitch, 0.0f);

@@ -161,7 +161,6 @@ void ModuleEditor::drawConfigWindow() {
 
 void ModuleEditor::drawAppInfo() const {
     static std::array<float, 100> fps_log = {};
-    static std::array<float, 100> ms_log = {};
     static int logIndex = 0;
     static int maxFPS = 60;
 
@@ -186,7 +185,6 @@ void ModuleEditor::drawAppInfo() const {
     ImGui::Separator();
 
     fps_log[logIndex] = fps;
-    ms_log[logIndex] = ms;
     logIndex = (logIndex + 1) % static_cast<int>(fps_log.size());
 
     const float graphWidth = ImGui::GetContentRegionAvail().x;
@@ -194,10 +192,6 @@ void ModuleEditor::drawAppInfo() const {
 
     ImGui::Text("Framerate: %.1f FPS", fps);
     ImGui::PlotHistogram( "##Framerate", fps_log.data(), static_cast<int>(fps_log.size()), logIndex, nullptr, 0.0f, 100.0f, graphSize);
-
-    ImGui::Text("Milliseconds: %.1f ms", ms);
-    graphSize.y = 80;
-    ImGui::PlotHistogram( "##Milliseconds", ms_log.data(), static_cast<int>(ms_log.size()), logIndex, nullptr, 0.0f, 40.0f, graphSize);
 }
 
 void ModuleEditor::drawWindowOptions() {
@@ -358,10 +352,11 @@ void ModuleEditor::drawCameraWindow(ModuleCameraEditor* camMod) {
 
             Vector3 forward = Vector3::Transform(Vector3::Forward, cam.orientation);
             forward.Normalize();
-            Vector3 derivedTarget = cam.position + forward * targetDistance;
 
-            if (!wasEditing)
+            if (!wasEditing) {
+                Vector3 derivedTarget = cam.position + forward * targetDistance;
                 target = derivedTarget;
+            }
 
             ImGui::DragFloat3("Target", &target.x, 0.1f);
 
@@ -377,13 +372,11 @@ void ModuleEditor::drawCameraWindow(ModuleCameraEditor* camMod) {
 
                 camMod->setLookAt(target, Vector3::Up);
             }
-
-            ImGui::SliderFloat("Target distance", &targetDistance, 0.5f, 200.0f);
         }
 
         ImGui::Separator();
 
-        // --- Projection params ---
+        // --- FOV and Planes ---
         {
             float fovX = cam.fovX;
             if (ImGui::SliderAngle("FOV X (horizontal)", &fovX, 10.0f, 120.0f))
@@ -462,13 +455,11 @@ void ModuleEditor::drawTextureChangeWindow(ModulePipeline* pipe)
 
         if (ImGui::Combo("Texture", &texIdx, items, IM_ARRAYSIZE(items)))
         {
-            const wchar_t* path = (texIdx == 0)
-                ? L"Assets/Textures/popcorn.jpg"
-                : L"Assets/Textures/dog.dds";
+            const wchar_t* path = (texIdx == 0) ? L"Assets/Textures/popcorn.jpg" : L"Assets/Textures/dog.dds";
 
             if (!pipe->setTextureFromFile(path))
             {
-                logg("Failed to load texture: %ls", path);
+                LOG("Failed to load texture: %ls", path);
             }
         }
 

@@ -19,7 +19,8 @@ ComPtr<ID3D12Resource> ModuleResources::createUploadBuffer(const void* data, UIN
 
 	CD3DX12_HEAP_PROPERTIES heapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 
-	HRESULT hr = device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer));
+    if (FAILED(device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&uploadBuffer))))
+        return nullptr;
 
 	BYTE* pData = nullptr;
 	CD3DX12_RANGE readRange(0, 0);
@@ -40,7 +41,8 @@ ComPtr<ID3D12Resource> ModuleResources::createDefaultBuffer(const void* data, UI
     auto defaultHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
     auto desc = CD3DX12_RESOURCE_DESC::Buffer(sizeInBytes);
 
-    HRESULT hr = device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&defaultBuffer));
+    if (FAILED(device->CreateCommittedResource(&defaultHeap, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&defaultBuffer))))
+        return nullptr;
 
     ComPtr<ID3D12Resource> uploadBuffer = createUploadBuffer(data, sizeInBytes);
 
@@ -76,40 +78,25 @@ ComPtr<ID3D12Resource> ModuleResources::createTextureFromFile(const wchar_t* fil
     DirectX::TexMetadata metaData = image.GetMetadata();
 
     //mipmap generation
-    const bool originallySRGB = DirectX::IsSRGB(metaData.format);
-
     if (metaData.mipLevels <= 1 && metaData.width > 1 && metaData.height > 1)
     {
-        if (DirectX::IsCompressed(metaData.format))
-        {
-            DirectX::ScratchImage decompressed;
-
-            HRESULT hrDec = DirectX::Decompress(image.GetImages(), image.GetImageCount(), metaData, DXGI_FORMAT_R8G8B8A8_UNORM, decompressed);
-
-            if (SUCCEEDED(hrDec))
-            {
-                image = std::move(decompressed);
-                metaData = image.GetMetadata();
-            }
-        }
-
+        LOG("This image don't have mipmaps originally");
         DirectX::ScratchImage mipChain;
 
         DirectX::TEX_FILTER_FLAGS filter = DirectX::TEX_FILTER_DEFAULT;
-        if (originallySRGB || DirectX::IsSRGB(metaData.format))
+        if (DirectX::IsSRGB(metaData.format))
             filter = (DirectX::TEX_FILTER_FLAGS)(filter | DirectX::TEX_FILTER_SRGB);
 
-        HRESULT hrMip = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), metaData, filter, 0, mipChain);
-
-        if (SUCCEEDED(hrMip))
+        if (SUCCEEDED(DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), metaData, filter, 0, mipChain)))
         {
+            LOG("Mipmaps generated succesfully");
             image = std::move(mipChain);
             metaData = image.GetMetadata();
         }
     }
 
     DXGI_FORMAT texFormat = metaData.format;
-    if (originallySRGB && texFormat == DXGI_FORMAT_R8G8B8A8_UNORM)
+    if (DirectX::IsSRGB(metaData.format) && texFormat == DXGI_FORMAT_R8G8B8A8_UNORM)
         texFormat = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 
     D3D12_RESOURCE_DESC texDesc = CD3DX12_RESOURCE_DESC::Tex2D(texFormat, UINT64(metaData.width), UINT(metaData.height), UINT16(metaData.arraySize), UINT16(metaData.mipLevels));
@@ -126,7 +113,8 @@ ComPtr<ID3D12Resource> ModuleResources::createTextureFromFile(const wchar_t* fil
     CD3DX12_HEAP_PROPERTIES buffHeap(D3D12_HEAP_TYPE_UPLOAD);
     ComPtr<ID3D12Resource> intermediate;
 
-    if (FAILED(device->CreateCommittedResource(&buffHeap, D3D12_HEAP_FLAG_NONE, &buffDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediate)))) return nullptr;
+    if (FAILED(device->CreateCommittedResource(&buffHeap, D3D12_HEAP_FLAG_NONE, &buffDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&intermediate)))) 
+        return nullptr;
 
     std::vector<D3D12_SUBRESOURCE_DATA> subData;
     subData.reserve(imgCount);

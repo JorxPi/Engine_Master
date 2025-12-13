@@ -31,14 +31,12 @@ bool ModuleSampler::cleanUp()
 
 D3D12_CPU_DESCRIPTOR_HANDLE ModuleSampler::getCpuHandle(UINT index) const
 {
-    return CD3DX12_CPU_DESCRIPTOR_HANDLE(samplerHeap->GetCPUDescriptorHandleForHeapStart(), index,
-        samplerDescriptorSize);
+    return CD3DX12_CPU_DESCRIPTOR_HANDLE(samplerHeap->GetCPUDescriptorHandleForHeapStart(), index, samplerDescriptorSize);
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE ModuleSampler::getGpuHandle(UINT index) const
 {
-    return CD3DX12_GPU_DESCRIPTOR_HANDLE(samplerHeap->GetGPUDescriptorHandleForHeapStart(), index,
-        samplerDescriptorSize);
+    return CD3DX12_GPU_DESCRIPTOR_HANDLE(samplerHeap->GetGPUDescriptorHandleForHeapStart(), index, samplerDescriptorSize);
 }
 
 void ModuleSampler::createDefaultSamplers(ID3D12Device* device)

@@ -16,8 +16,8 @@ ModulePipeline::ModulePipeline() {
 
 bool ModulePipeline::init() {
     if (!createQuadVertexBuffer()) return false;
-    if (!createRootSignature())        return false;
-    if (!createPSO())                  return false;
+    if (!createRootSignature())    return false;
+    if (!createPSO())              return false;
 
     auto modD3D12 = app->getModule<ModuleD3D12>();
     
@@ -170,8 +170,7 @@ bool ModulePipeline::createPSO() {
     psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
     psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
-    HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso));
-    return SUCCEEDED(hr);
+    return SUCCEEDED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso)));
 }
 
 bool ModulePipeline::cleanUp() {
