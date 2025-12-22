@@ -7,6 +7,8 @@
 #include "ModulePipeline.h"
 #include "ModuleCameraEditor.h"
 #include "ModuleSampler.h"
+#include "ModuleDescriptors.h"
+#include "ModuleRingBuffer.h"
 
 
 Application::Application(int argc, wchar_t** argv, void* hWnd)
@@ -14,9 +16,11 @@ Application::Application(int argc, wchar_t** argv, void* hWnd)
     modules.push_back(new ModuleInput((HWND)hWnd));
     modules.push_back(new ModuleEditor((HWND)hWnd));
     modules.push_back(new ModuleD3D12((HWND)hWnd));
+    modules.push_back(new ModuleRingBuffer());
     modules.push_back(new ModuleResources());
     modules.push_back(new ModuleCameraEditor());
     modules.push_back(new ModuleSampler());
+    modules.push_back(new ModuleDescriptors());
     modules.push_back(new ModulePipeline());
 }
 

@@ -26,6 +26,8 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE getCurrentRTV() const { return CD3DX12_CPU_DESCRIPTOR_HANDLE(rtvHeap->GetCPUDescriptorHandleForHeapStart(), frameIndex,rtvDescriptorSize); }
 	D3D12_CPU_DESCRIPTOR_HANDLE getDSV() const{ return dsvHeap->GetCPUDescriptorHandleForHeapStart(); }
 	ID3D12Resource* getCurrentRenderTarget() const { return renderTargets[frameIndex].Get(); }
+	UINT getFrameIndex() const { return frameIndex; }
+	static constexpr UINT getFrameCount() { return FrameCount; }
 
 private:
 	void resize();

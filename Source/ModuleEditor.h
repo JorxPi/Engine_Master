@@ -37,7 +37,10 @@ public:
 	// Texture
 	void drawTextureSamplesWindow(ModulePipeline* pipe);
 	void drawTextureGridWindow(ModulePipeline* pipe);
-	void drawTextureChangeWindow(ModulePipeline* pipe);
+	//void drawTextureChangeWindow(ModulePipeline* pipe);
+
+	//Model
+	void drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEditor* cam);
 
 
 private:
@@ -54,6 +57,9 @@ private:
 	bool showTextureSamples = false;
 	bool showTextureGrid = false;
 	bool showTextureChange = false;
+	bool showGeometryViewer = false;
 
+	float gizmoDesiredPixels = 120.0f;
+	float gizmoViewportH = 1.0f;
 
 };

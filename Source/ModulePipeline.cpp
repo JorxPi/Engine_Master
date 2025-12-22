@@ -6,6 +6,7 @@
 #include "ReadData.h" 
 #include "ModuleCameraEditor.h"
 #include "ModuleSampler.h"
+#include "ModuleDescriptors.h"
 #include <SimpleMath.h>
 using namespace DirectX::SimpleMath;
 
@@ -15,14 +16,30 @@ ModulePipeline::ModulePipeline() {
 
 
 bool ModulePipeline::init() {
-    if (!createQuadVertexBuffer()) return false;
+    //if (!createQuadVertexBuffer()) return false;
     if (!createRootSignature())    return false;
     if (!createPSO())              return false;
 
     auto modD3D12 = app->getModule<ModuleD3D12>();
+    auto modDesc = app->getModule<ModuleDescriptors>();
+    nullSrvIndex = modDesc->createNullTexture2DSRV();
+
+    MaterialData def{};
+    def.baseColour = Vector4(1, 1, 1, 1);
+    def.hasColourTexture = FALSE;
+
+    size_t cbSize = alignUp(sizeof(MaterialData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    std::vector<uint8_t> tmp(cbSize, 0);
+    memcpy(tmp.data(), &def, sizeof(def));
+
+    auto modRes = app->getModule<ModuleResources>();
+    defaultMaterialBuffer = modRes->createDefaultBuffer(tmp.data(), (UINT64)cbSize);
     
-    if (!setTextureFromFile(L"Assets/Textures/popcorn.jpg"))
-        return false;
+    duckModel.loadModel("Assets/Models/Duck/Duck.gltf");
+    duckModel.setModelMatrix(Matrix::CreateScale(0.01f));
+    LOG("Duck meshes: %zu  materials: %zu",
+        duckModel.getMeshes().size(),
+        duckModel.getMaterials().size());
 
     auto device4 = reinterpret_cast<ID3D12Device4*>(modD3D12->getDevice());
     debugDraw = new DebugDrawPass(device4, modD3D12->getCommandQueue());
@@ -34,7 +51,7 @@ void ModulePipeline::preRender() {
     ID3D12GraphicsCommandList* cmd = modD3D12->getCommandList();
     auto modSampler = app->getModule<ModuleSampler>();
 
-    Matrix model = Matrix::Identity;
+    Matrix model = duckModel.getModelMatrix();
 
     auto camera = app->getModule<ModuleCameraEditor>();
 
@@ -59,18 +76,56 @@ void ModulePipeline::preRender() {
     auto dsv = modD3D12->getDSV();
     cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-    ID3D12DescriptorHeap* heaps[] = { srvHeap.Get(), modSampler->getHeap() };
+    auto modDesc = app->getModule<ModuleDescriptors>();
+
+    ID3D12DescriptorHeap* heaps[] = { modDesc->getHeap(), modSampler->getHeap() };
     cmd->SetDescriptorHeaps(2, heaps);
 
     cmd->SetGraphicsRootSignature(rootSignature.Get());
-    cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &mvp, 0);
-    cmd->SetGraphicsRootDescriptorTable(1, textureGpuHandle);
-    cmd->SetGraphicsRootDescriptorTable(2, modSampler->getGpuHandle((UINT)selectedSamplerIndex));
     cmd->SetPipelineState(pso.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    cmd->IASetVertexBuffers(0, 1, &vbv);
 
-    cmd->DrawInstanced(6, 1, 0, 0);
+    cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &mvp, 0);
+
+    const auto& meshes = duckModel.getMeshes();
+    const auto& mats = duckModel.getMaterials();
+
+    for (const Mesh& mesh : meshes)
+    {
+        // Bind VB
+        const D3D12_VERTEX_BUFFER_VIEW& vbv = mesh.getVBV();
+        cmd->IASetVertexBuffers(0, 1, &vbv);
+
+        const int matIdx = mesh.getMaterialIndex();
+
+        // Bind material CBV (root param 1 = b1) and SRV (root param 2 = t0)
+        if (matIdx >= 0 && matIdx < (int)mats.size())
+        {
+            cmd->SetGraphicsRootConstantBufferView(1, mats[matIdx].getMaterialBufferAddress());
+            cmd->SetGraphicsRootDescriptorTable(2, modDesc->getGpuHandle(mats[matIdx].getColourSrvIndex()));
+        }
+        else
+        {
+            // fallback bind something valid
+            cmd->SetGraphicsRootConstantBufferView(1, defaultMaterialBuffer->GetGPUVirtualAddress());
+            cmd->SetGraphicsRootDescriptorTable(2, modDesc->getGpuHandle(nullSrvIndex));
+        }
+
+        // Sampler (root param 3 = s0)
+        cmd->SetGraphicsRootDescriptorTable(3, modSampler->getGpuHandle((UINT)selectedSamplerIndex));
+
+        // Draw indexed or non-indexed
+        if (mesh.hasIndices())
+        {
+            const D3D12_INDEX_BUFFER_VIEW& ibv = mesh.getIBV();
+            cmd->IASetIndexBuffer(&ibv);
+            cmd->DrawIndexedInstanced(mesh.getNumIndices(), 1, 0, 0, 0);
+        }
+        else
+        {
+            cmd->DrawInstanced(mesh.getNumVertices(), 1, 0, 0);
+        }
+    }
 
     // Grid & Axis
 
@@ -85,7 +140,7 @@ struct Vertex {
     Vector2 uv;
 };
 
-bool ModulePipeline::createQuadVertexBuffer() {
+/*bool ModulePipeline::createQuadVertexBuffer() {
     auto modRes = app->getModule<ModuleResources>();
 
     static Vertex vertices[6] =
@@ -108,13 +163,13 @@ bool ModulePipeline::createQuadVertexBuffer() {
     vbv.StrideInBytes = sizeof(Vertex);
 
     return true;
-}
+}*/
 
 bool ModulePipeline::createRootSignature() {
     auto modD3D12 = app->getModule<ModuleD3D12>();
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    CD3DX12_ROOT_PARAMETER rootParams[3];
+    CD3DX12_ROOT_PARAMETER rootParams[4];
     
     CD3DX12_DESCRIPTOR_RANGE tableRange;
     tableRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0); 
@@ -123,10 +178,11 @@ bool ModulePipeline::createRootSignature() {
     samplerRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0, 0);
 
     rootParams[0].InitAsConstants(sizeof(Matrix) / sizeof(UINT32), 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-    rootParams[1].InitAsDescriptorTable(1, &tableRange, D3D12_SHADER_VISIBILITY_PIXEL);
-    rootParams[2].InitAsDescriptorTable(1, &samplerRange, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParams[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParams[2].InitAsDescriptorTable(1, &tableRange, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParams[3].InitAsDescriptorTable(1, &samplerRange, D3D12_SHADER_VISIBILITY_PIXEL);
 
-    rootSignatureDesc.Init(3, rootParams, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    rootSignatureDesc.Init(4, rootParams, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     ComPtr<ID3DBlob> blob;
     if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, nullptr)))
@@ -145,7 +201,7 @@ bool ModulePipeline::createPSO() {
     std::vector<uint8_t> dataVS, dataPS;
 
     dataVS = DX::ReadData(L"ExerciseQuadVer.cso");
-    dataPS = DX::ReadData(L"ExerciseQuadPix.cso");
+    dataPS = DX::ReadData(L"ExerciseFivePix.cso");
 
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {  
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }, 
@@ -164,7 +220,10 @@ bool ModulePipeline::createPSO() {
     psoDesc.NumRenderTargets = 1;
     psoDesc.SampleDesc = { 1, 0 };
     psoDesc.SampleMask = 0xffffffff;
+
     psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
+
     psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 
     psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -174,8 +233,7 @@ bool ModulePipeline::createPSO() {
 }
 
 bool ModulePipeline::cleanUp() {
-    srvHeap.Reset();
-    texture.Reset();
+    defaultMaterialBuffer.Reset();
     vertexBuffer.Reset();
     rootSignature.Reset();
     pso.Reset();
@@ -185,7 +243,7 @@ bool ModulePipeline::cleanUp() {
     return true;
 }
 
-bool ModulePipeline::setTextureFromFile(const wchar_t* path)
+/*bool ModulePipeline::setTextureFromFile(const wchar_t* path)
 {
     auto modD3D12 = app->getModule<ModuleD3D12>();
     auto modRes = app->getModule<ModuleResources>();
@@ -213,7 +271,7 @@ bool ModulePipeline::setTextureFromFile(const wchar_t* path)
     currentTexturePath = path;
 
     return true;
-}
+}*/
 
 void ModulePipeline::setSamplerIndex(int idx)
 {

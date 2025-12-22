@@ -43,6 +43,21 @@
     <ClCompile Include="ModuleSampler.cpp">
       <Filter>Modules</Filter>
     </ClCompile>
+    <ClCompile Include="Model.cpp">
+      <Filter>Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="Material.cpp">
+      <Filter>Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleDescriptors.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleRingBuffer.cpp">
+      <Filter>Modules</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rdParty\imgui-1.89.8\backends\imgui_impl_win32.h" />
@@ -95,6 +110,22 @@
     <ClInclude Include="ModuleSampler.h">
       <Filter>Modules</Filter>
     </ClInclude>
+    <ClInclude Include="Model.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Material.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="gltf_utils.h" />
+    <ClInclude Include="ModuleDescriptors.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleRingBuffer.h">
+      <Filter>Modules</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Engine.rc" />
@@ -117,12 +148,18 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{b5756902-e790-4890-be44-d34401c64209}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Geometry">
+      <UniqueIdentifier>{78732882-0486-43a0-ba51-c5d5fc0e65a3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="ExerciseQuadPix.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="ExerciseQuadVer.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="ExerciseFivePix.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

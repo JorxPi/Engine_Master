@@ -1,6 +1,8 @@
 #pragma once
 #include "Module.h"
 #include "DebugDrawPass.h"
+#include "Model.h"
+
 
 class ModulePipeline : public Module
 {
@@ -10,7 +12,7 @@ public:
     void preRender() override;
     bool cleanUp() override;
 
-    bool setTextureFromFile(const wchar_t* path);
+    //bool setTextureFromFile(const wchar_t* path);
 
     void setSamplerIndex(int i);
 
@@ -22,8 +24,11 @@ public:
     bool getShowGrid() const { return showGrid; }
     bool getShowAxis() const { return showAxis; }
 
+    const Model& getModel() const { return duckModel; }
+    Model& getModel() { return duckModel; }
+
 private:
-    bool createQuadVertexBuffer();
+    //bool createQuadVertexBuffer();
     bool createRootSignature();
     bool createPSO();
 
@@ -32,11 +37,12 @@ private:
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pso;
 
-    ComPtr<ID3D12Resource> texture;
-    ComPtr<ID3D12DescriptorHeap> srvHeap;
-    D3D12_GPU_DESCRIPTOR_HANDLE textureGpuHandle{};
-
     std::wstring currentTexturePath;
+
+    Model duckModel;
+
+    ComPtr<ID3D12Resource> defaultMaterialBuffer;
+    uint32_t nullSrvIndex = 0;
 
     int selectedSamplerIndex = 0;
 

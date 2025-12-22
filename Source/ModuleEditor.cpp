@@ -5,6 +5,7 @@
 #include "ModulePipeline.h"
 #include "ModuleCameraEditor.h"
 #include "imgui.h"
+#include "ImGuizmo.h"
 #include <thread>
 
 
@@ -25,6 +26,14 @@ bool ModuleEditor::postInit() {
 void ModuleEditor::preRender() {
     if (!imguiPass) return;
     imguiPass->startFrame();
+    ImGuizmo::BeginFrame();
+
+    RECT rc{};
+    GetClientRect(hWnd, &rc);
+    float w = float(rc.right - rc.left);
+    float h = float(rc.bottom - rc.top);
+
+    ImGuizmo::SetRect(0, 0, w, h);
 
     auto* pipe = app->getModule<ModulePipeline>();
     auto* cam = app->getModule<ModuleCameraEditor>();
@@ -60,6 +69,12 @@ void ModuleEditor::preRender() {
             ImGui::EndMenu();
         }
 
+        if (ImGui::BeginMenu("Model"))
+        {
+            ImGui::MenuItem("Geometry Viewer", nullptr, &showGeometryViewer);
+            ImGui::EndMenu();
+        }
+
         ImGui::EndMainMenuBar();
 
         drawDocSpace();
@@ -76,7 +91,9 @@ void ModuleEditor::preRender() {
 
     drawTextureSamplesWindow(pipe);
     drawTextureGridWindow(pipe);
-    drawTextureChangeWindow(pipe);
+    //drawTextureChangeWindow(pipe);
+
+    drawGeometryViewerWindow(pipe, cam);
 }
 
 void ModuleEditor::render() {
@@ -442,7 +459,7 @@ void ModuleEditor::drawTextureGridWindow(ModulePipeline* pipe) {
     
 }
 
-void ModuleEditor::drawTextureChangeWindow(ModulePipeline* pipe)
+/*void ModuleEditor::drawTextureChangeWindow(ModulePipeline* pipe)
 {
     if (!showTextureChange) return;
 
@@ -466,4 +483,63 @@ void ModuleEditor::drawTextureChangeWindow(ModulePipeline* pipe)
         ImGui::Text("Current: %ls", pipe->getTexturePath());
         ImGui::End();
     }
+}*/
+
+void ModuleEditor::drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEditor* cam)
+{
+    if (!showGeometryViewer || !pipe || !cam) return;
+
+    if (!ImGui::Begin("Geometry Viewer", &showGeometryViewer))
+    {
+        ImGui::End();
+        return;
+    }
+
+    Model& model = pipe->getModel();
+
+    static ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE;
+    static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
+
+    const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+    if (!rmbDown) {
+        if (ImGui::IsKeyPressed(ImGuiKey_W)) op = ImGuizmo::TRANSLATE;
+        if (ImGui::IsKeyPressed(ImGuiKey_E)) op = ImGuizmo::ROTATE;
+        if (ImGui::IsKeyPressed(ImGuiKey_R)) op = ImGuizmo::SCALE;
+    }
+
+    ImGui::RadioButton("Translate", (int*)&op, (int)ImGuizmo::TRANSLATE); ImGui::SameLine();
+    ImGui::RadioButton("Rotate", (int*)&op, (int)ImGuizmo::ROTATE);    ImGui::SameLine();
+    ImGui::RadioButton("Scale", (int*)&op, (int)ImGuizmo::SCALE);
+
+    ImGui::RadioButton("Local", (int*)&mode, (int)ImGuizmo::LOCAL); ImGui::SameLine();
+    ImGui::RadioButton("World", (int*)&mode, (int)ImGuizmo::WORLD);
+
+    DirectX::SimpleMath::Matrix objectMatrix = model.getModelMatrix();
+
+    float tr[3], rt[3], sc[3];
+    ImGuizmo::DecomposeMatrixToComponents((float*)&objectMatrix, tr, rt, sc);
+
+    bool changed = false;
+    changed |= ImGui::DragFloat3("Tr", tr, 0.01f);
+    changed |= ImGui::DragFloat3("Rt", rt, 0.1f);
+    changed |= ImGui::DragFloat3("Sc", sc, 0.01f);
+
+    if (changed)
+    {
+        ImGuizmo::RecomposeMatrixFromComponents(tr, rt, sc, (float*)&objectMatrix);
+        model.setModelMatrix(objectMatrix);
+    }
+
+    ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
+    ImGuizmo::SetOrthographic(false);
+
+    const auto& view = cam->getViewMatrix();
+    const auto& proj = cam->getProjectionMatrix();
+
+    ImGuizmo::Manipulate((const float*)&view, (const float*)&proj, op, mode, (float*)&objectMatrix);
+
+    if (ImGuizmo::IsUsing())
+        model.setModelMatrix(objectMatrix);
+
+    ImGui::End();
 }

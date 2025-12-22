@@ -2,6 +2,7 @@
 #include "Application.h"
 #include "ModuleCameraEditor.h"
 #include "Mouse.h"
+#include "ImGuizmo.h"
 #include <algorithm>
 #include <math.h>
 
@@ -16,9 +17,23 @@ void ModuleCameraEditor::update()
 {
     auto& io = ImGui::GetIO();
 
-    if (io.WantCaptureKeyboard || io.WantCaptureMouse) {
+    const bool altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+    const bool lmbDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+
+    if (ImGuizmo::IsUsing() || (ImGuizmo::IsOver() && lmbDown && !rmbDown))
+    {
         rmbMode = RMBMode::None;
         wasRmbDown = false;
+        wasOrbitDown = false;
+        return;
+    }
+
+    if (!rmbDown && (io.WantCaptureKeyboard || io.WantCaptureMouse))
+    {
+        rmbMode = RMBMode::None;
+        wasRmbDown = false;
+        wasOrbitDown = false;
         return;
     }
 
@@ -33,10 +48,6 @@ void ModuleCameraEditor::update()
 
     POINT cur{};
     GetCursorPos(&cur);
-
-    const bool altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
-    const bool lmbDown = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-    const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
 
     if (altDown && lmbDown)
     {
