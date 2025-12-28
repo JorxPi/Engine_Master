@@ -38,6 +38,8 @@ void ModuleEditor::preRender() {
     auto* pipe = app->getModule<ModulePipeline>();
     auto* cam = app->getModule<ModuleCameraEditor>();
 
+    focusOnModel(pipe, cam);
+
     if (ImGui::BeginMainMenuBar())
     {
         if (ImGui::BeginMenu("View"))
@@ -52,6 +54,7 @@ void ModuleEditor::preRender() {
         if (ImGui::BeginMenu("Options"))
         {
             ImGui::MenuItem("Configuration", nullptr, &showConfig);
+            ImGui::MenuItem("Debug Grid", nullptr, &showTextureGrid);
             ImGui::EndMenu();
         }
 
@@ -61,17 +64,10 @@ void ModuleEditor::preRender() {
             ImGui::EndMenu();
         }
 
-        if (ImGui::BeginMenu("Texture"))
-        {
-            ImGui::MenuItem("Samples", nullptr, &showTextureSamples);
-            ImGui::MenuItem("Debug Grid", nullptr, &showTextureGrid);
-            ImGui::MenuItem("Change Texture", nullptr, &showTextureChange);
-            ImGui::EndMenu();
-        }
-
         if (ImGui::BeginMenu("Model"))
         {
             ImGui::MenuItem("Geometry Viewer", nullptr, &showGeometryViewer);
+            ImGui::MenuItem("Phong Controls", nullptr, &showPhongControls);
             ImGui::EndMenu();
         }
 
@@ -89,11 +85,15 @@ void ModuleEditor::preRender() {
 
     drawCameraWindow(cam);
 
-    drawTextureSamplesWindow(pipe);
     drawTextureGridWindow(pipe);
-    //drawTextureChangeWindow(pipe);
 
     drawGeometryViewerWindow(pipe, cam);
+    drawPhongControlsWindow(pipe, cam);
+
+    //ImGizmo
+    drawGizmo(pipe, cam);
+    updateGizmoSelection(pipe);
+    updateGizmoHotkeys();
 }
 
 void ModuleEditor::render() {
@@ -414,31 +414,6 @@ void ModuleEditor::drawCameraWindow(ModuleCameraEditor* camMod) {
     ImGui::End();
 }
 
-void ModuleEditor::drawTextureSamplesWindow(ModulePipeline* pipe) {
-    if (!showTextureSamples) return;
-
-    if (!ImGui::Begin("Samples", &showTextureSamples)) { ImGui::End(); return; }
-
-    if (pipe)
-    {
-        static int samplerIdx = 0;
-        const char* items[] = {
-            "Linear Wrap",
-            "Linear Clamp",
-            "Point Wrap",
-            "Point Clamp"
-        };
-
-        if (ImGui::Combo("Sampler Mode", &samplerIdx, items, IM_ARRAYSIZE(items)))
-        {
-            pipe->setSamplerIndex(samplerIdx);
-        }
-    }
-
-    ImGui::End();
-    
-}
-
 void ModuleEditor::drawTextureGridWindow(ModulePipeline* pipe) {
     if (!showTextureGrid) return;
     
@@ -459,32 +434,6 @@ void ModuleEditor::drawTextureGridWindow(ModulePipeline* pipe) {
     
 }
 
-/*void ModuleEditor::drawTextureChangeWindow(ModulePipeline* pipe)
-{
-    if (!showTextureChange) return;
-
-    if (!ImGui::Begin("Change Texture", &showTextureChange)) { ImGui::End(); return; }
-
-    if (pipe) {
-
-        static int texIdx = 0;
-        const char* items[] = { "Popcorn (JPG)", "Dog (DDS)" };
-
-        if (ImGui::Combo("Texture", &texIdx, items, IM_ARRAYSIZE(items)))
-        {
-            const wchar_t* path = (texIdx == 0) ? L"Assets/Textures/popcorn.jpg" : L"Assets/Textures/dog.dds";
-
-            if (!pipe->setTextureFromFile(path))
-            {
-                LOG("Failed to load texture: %ls", path);
-            }
-        }
-
-        ImGui::Text("Current: %ls", pipe->getTexturePath());
-        ImGui::End();
-    }
-}*/
-
 void ModuleEditor::drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEditor* cam)
 {
     if (!showGeometryViewer || !pipe || !cam) return;
@@ -497,25 +446,16 @@ void ModuleEditor::drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEd
 
     Model& model = pipe->getModel();
 
-    static ImGuizmo::OPERATION op = ImGuizmo::TRANSLATE;
-    static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
+    ImGui::RadioButton("Translate", (int*)&gizmoOp, (int)ImGuizmo::TRANSLATE); ImGui::SameLine();
+    ImGui::RadioButton("Rotate", (int*)&gizmoOp, (int)ImGuizmo::ROTATE);    ImGui::SameLine();
+    ImGui::RadioButton("Scale", (int*)&gizmoOp, (int)ImGuizmo::SCALE);
 
-    const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
-    if (!rmbDown) {
-        if (ImGui::IsKeyPressed(ImGuiKey_W)) op = ImGuizmo::TRANSLATE;
-        if (ImGui::IsKeyPressed(ImGuiKey_E)) op = ImGuizmo::ROTATE;
-        if (ImGui::IsKeyPressed(ImGuiKey_R)) op = ImGuizmo::SCALE;
-    }
+    ImGui::RadioButton("Local", (int*)&gizmoMode, (int)ImGuizmo::LOCAL); ImGui::SameLine();
+    ImGui::RadioButton("World", (int*)&gizmoMode, (int)ImGuizmo::WORLD);
 
-    ImGui::RadioButton("Translate", (int*)&op, (int)ImGuizmo::TRANSLATE); ImGui::SameLine();
-    ImGui::RadioButton("Rotate", (int*)&op, (int)ImGuizmo::ROTATE);    ImGui::SameLine();
-    ImGui::RadioButton("Scale", (int*)&op, (int)ImGuizmo::SCALE);
+    ImGui::Checkbox("Show Gizmo", &showGizmo);
 
-    ImGui::RadioButton("Local", (int*)&mode, (int)ImGuizmo::LOCAL); ImGui::SameLine();
-    ImGui::RadioButton("World", (int*)&mode, (int)ImGuizmo::WORLD);
-
-    DirectX::SimpleMath::Matrix objectMatrix = model.getModelMatrix();
-
+    Matrix objectMatrix = model.getModelMatrix();
     float tr[3], rt[3], sc[3];
     ImGuizmo::DecomposeMatrixToComponents((float*)&objectMatrix, tr, rt, sc);
 
@@ -530,16 +470,165 @@ void ModuleEditor::drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEd
         model.setModelMatrix(objectMatrix);
     }
 
+    ImGui::End();
+}
+
+void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEditor* cam)
+{
+    if (!showPhongControls || !pipe || !cam) return;
+
+    if (!ImGui::Begin("Phong Controls", &showPhongControls))
+    {
+        ImGui::End();
+        return;
+    }
+
+    auto& phong = pipe->editPhong();
+
+    // Light
+    if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        bool changedDir = ImGui::DragFloat3("Direction", (float*)&phong.lightDir, 0.01f, -1.0f, 1.0f);
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Normalize"))
+        {
+            phong.lightDir.Normalize();
+            changedDir = true;
+        }
+        if (changedDir)
+        {
+            phong.lightDir.Normalize();
+        }
+
+        ImGui::ColorEdit3("Light Color", (float*)&phong.lightColor, ImGuiColorEditFlags_NoAlpha);
+        ImGui::ColorEdit3("Ambient", (float*)&phong.ambient, ImGuiColorEditFlags_NoAlpha);
+    }
+
+    ImGui::Separator();
+
+    // Sampler
+    if (ImGui::CollapsingHeader("Sampling", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        static const char* samplerItems[] = {
+            "Point Wrap",
+            "Point Clamp",
+            "Linear Wrap",
+            "Linear Clamp"
+        };
+
+        int s = phong.samplerIndex;
+        if (ImGui::Combo("Sampler", &s, samplerItems, IM_ARRAYSIZE(samplerItems)))
+        {
+            pipe->setSamplerIndex(s);
+        }
+    }
+
+    ImGui::Separator();
+
+    // Material override
+    if (ImGui::CollapsingHeader("Material Override", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Checkbox("Use Override Material", &phong.useOverride);
+
+        if (phong.useOverride)
+        {
+            float col[4] = {
+                phong.overrideMat.diffuseColour.x,
+                phong.overrideMat.diffuseColour.y,
+                phong.overrideMat.diffuseColour.z,
+                phong.overrideMat.diffuseColour.w
+            };
+
+            if (ImGui::ColorEdit4("Diffuse Colour", col, ImGuiColorEditFlags_NoInputs))
+            {
+                phong.overrideMat.diffuseColour = DirectX::XMFLOAT4(col[0], col[1], col[2], col[3]);
+            }
+
+            bool hasTex = phong.overrideMat.hasDiffuseTex ? true : false;
+            if (ImGui::Checkbox("Use Diffuse Texture", &hasTex))
+            {
+                phong.overrideMat.hasDiffuseTex = hasTex ? TRUE : FALSE;
+            }
+
+            ImGui::DragFloat("Kd", &phong.overrideMat.Kd, 0.01f, 0.0f, 5.0f);
+            ImGui::DragFloat("Ks", &phong.overrideMat.Ks, 0.01f, 0.0f, 5.0f);
+            ImGui::DragFloat("Shininess", &phong.overrideMat.shininess, 1.0f, 1.0f, 512.0f);
+        }
+    }
+
+    ImGui::End();
+}
+
+void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
+    ImGuiIO& io = ImGui::GetIO();
+
+    if (ImGui::IsKeyPressed(ImGuiKey_F) && !io.WantCaptureKeyboard && !ImGuizmo::IsUsing())
+    {
+        if (pipe && cam)
+        {
+            Model& model = pipe->getModel();
+
+            Vector3 worldPivot = model.getModelMatrix().Translation();
+
+            cam->focusOnGeometry(worldPivot);
+        }
+    }
+}
+
+void ModuleEditor::updateGizmoHotkeys()
+{
+    const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+    if (rmbDown) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureKeyboard || io.WantTextInput) return;
+    if (ImGuizmo::IsUsing()) return;
+
+    if (ImGui::IsKeyPressed(ImGuiKey_W)) { gizmoOp = ImGuizmo::TRANSLATE; hasSelection = true; }
+    if (ImGui::IsKeyPressed(ImGuiKey_E)) { gizmoOp = ImGuizmo::ROTATE;    hasSelection = true; }
+    if (ImGui::IsKeyPressed(ImGuiKey_R)) { gizmoOp = ImGuizmo::SCALE;     hasSelection = true; }
+}
+
+void ModuleEditor::drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam)
+{
+    if (!showGizmo || !pipe || !cam || !hasSelection) return;
+
+    Model& model = pipe->getModel();
+    Matrix objectMatrix = model.getModelMatrix();
+
     ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
     ImGuizmo::SetOrthographic(false);
 
-    const auto& view = cam->getViewMatrix();
-    const auto& proj = cam->getProjectionMatrix();
+    const Matrix& view = cam->getViewMatrix();
+    const Matrix& proj = cam->getProjectionMatrix();
 
-    ImGuizmo::Manipulate((const float*)&view, (const float*)&proj, op, mode, (float*)&objectMatrix);
+    ImGuizmo::Manipulate((const float*)&view, (const float*)&proj, gizmoOp, gizmoMode, (float*)&objectMatrix);
 
     if (ImGuizmo::IsUsing())
         model.setModelMatrix(objectMatrix);
+}
 
-    ImGui::End();
+void ModuleEditor::updateGizmoSelection(ModulePipeline* pipe)
+{
+    if (!pipe) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+
+    // Esc and left click (without alt pressed) deactivates selection
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+        hasSelection = false;
+
+    if (!ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        return;
+
+    if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0)
+        return;
+
+    if (io.WantCaptureMouse)
+        return;
+
+    if (ImGuizmo::IsOver() || ImGuizmo::IsUsing())
+        return;
+
+    hasSelection = false;
 }

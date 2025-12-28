@@ -51,22 +51,15 @@ void Material::load(const tinygltf::Model& model, const tinygltf::PbrMetallicRou
         }
     }
 
-    materialData.baseColour = colour;
-    materialData.hasColourTexture = (colourTex != nullptr) ? TRUE : FALSE;
-
-    materialBuffer.Reset();
-
-    const size_t cbSize = alignUp(sizeof(MaterialData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-
-    std::vector<uint8_t> tmp(cbSize, 0);
-    std::memcpy(tmp.data(), &materialData, sizeof(MaterialData));
-
-    auto modRes = app->getModule<ModuleResources>();
-    materialBuffer = modRes->createDefaultBuffer(tmp.data(), (UINT64)cbSize);
-
     auto modDesc = app->getModule<ModuleDescriptors>();
     if (colourTex)
         colourSrvIndex = modDesc->createTexture2DSRV(colourTex.Get());
     else
         colourSrvIndex = modDesc->createNullTexture2DSRV();
+
+    phong.diffuseColour = DirectX::XMFLOAT4(colour.x, colour.y, colour.z, colour.w);
+    phong.Kd = 1.0f;
+    phong.Ks = 0.2f;
+    phong.shininess = 64.0f;
+    phong.hasDiffuseTex = (material.baseColorTexture.index >= 0) ? TRUE : FALSE;
 }

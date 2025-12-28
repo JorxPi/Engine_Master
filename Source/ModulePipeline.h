@@ -2,6 +2,7 @@
 #include "Module.h"
 #include "DebugDrawPass.h"
 #include "Model.h"
+#include "PhongData.h"
 
 
 class ModulePipeline : public Module
@@ -12,7 +13,7 @@ public:
     void preRender() override;
     bool cleanUp() override;
 
-    //bool setTextureFromFile(const wchar_t* path);
+    void initPhongSettings();
 
     void setSamplerIndex(int i);
 
@@ -27,13 +28,13 @@ public:
     const Model& getModel() const { return duckModel; }
     Model& getModel() { return duckModel; }
 
+    PhongSettings& editPhong() { return phong; }
+    const PhongSettings& getPhong() const { return phong; }
+
 private:
-    //bool createQuadVertexBuffer();
     bool createRootSignature();
     bool createPSO();
 
-    Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer;
-    D3D12_VERTEX_BUFFER_VIEW vbv{};
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pso;
 
@@ -41,10 +42,9 @@ private:
 
     Model duckModel;
 
-    ComPtr<ID3D12Resource> defaultMaterialBuffer;
     uint32_t nullSrvIndex = 0;
 
-    int selectedSamplerIndex = 0;
+    PhongSettings phong;
 
 
     // Grid

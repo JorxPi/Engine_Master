@@ -53,7 +53,7 @@ void Model::loadModel(const char* assetFileName)
 void Model::loadMaterials(const tinygltf::Model& model, const char* basePath)
 {
     materials.clear();
-    // Preallocate enough space for all materials
+    // Preallocating enough space for all materials
     materials.reserve(model.materials.size());
 
     for (const tinygltf::Material& m : model.materials)

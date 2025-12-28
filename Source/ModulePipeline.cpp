@@ -7,6 +7,7 @@
 #include "ModuleCameraEditor.h"
 #include "ModuleSampler.h"
 #include "ModuleDescriptors.h"
+#include "ModuleRingBuffer.h"
 #include <SimpleMath.h>
 using namespace DirectX::SimpleMath;
 
@@ -16,30 +17,20 @@ ModulePipeline::ModulePipeline() {
 
 
 bool ModulePipeline::init() {
-    //if (!createQuadVertexBuffer()) return false;
     if (!createRootSignature())    return false;
     if (!createPSO())              return false;
 
     auto modD3D12 = app->getModule<ModuleD3D12>();
     auto modDesc = app->getModule<ModuleDescriptors>();
     nullSrvIndex = modDesc->createNullTexture2DSRV();
-
-    MaterialData def{};
-    def.baseColour = Vector4(1, 1, 1, 1);
-    def.hasColourTexture = FALSE;
-
-    size_t cbSize = alignUp(sizeof(MaterialData), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-    std::vector<uint8_t> tmp(cbSize, 0);
-    memcpy(tmp.data(), &def, sizeof(def));
-
-    auto modRes = app->getModule<ModuleResources>();
-    defaultMaterialBuffer = modRes->createDefaultBuffer(tmp.data(), (UINT64)cbSize);
     
     duckModel.loadModel("Assets/Models/Duck/Duck.gltf");
     duckModel.setModelMatrix(Matrix::CreateScale(0.01f));
     LOG("Duck meshes: %zu  materials: %zu",
         duckModel.getMeshes().size(),
         duckModel.getMaterials().size());
+
+    initPhongSettings();
 
     auto device4 = reinterpret_cast<ID3D12Device4*>(modD3D12->getDevice());
     debugDraw = new DebugDrawPass(device4, modD3D12->getCommandQueue());
@@ -85,46 +76,84 @@ void ModulePipeline::preRender() {
     cmd->SetPipelineState(pso.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+    // b0
     cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &mvp, 0);
+
+    auto ring = app->getModule<ModuleRingBuffer>();
+
+    PerFrame perFrame{};
+    perFrame.L = phong.lightDir;
+    perFrame.L.Normalize();
+    perFrame.Lc = phong.lightColor;
+    perFrame.Ac = phong.ambient;
+    perFrame.viewPos = camera->readCamera().position;
+
+    auto pfAlloc = ring->allocBuffer((uint32_t)sizeof(PerFrame));
+    memcpy(pfAlloc.cpu, &perFrame, sizeof(PerFrame));
+
+    // b1
+    cmd->SetGraphicsRootConstantBufferView(1, pfAlloc.gpu); 
+
+    // s0
+    cmd->SetGraphicsRootDescriptorTable(4, modSampler->getGpuHandle((UINT)phong.samplerIndex));
 
     const auto& meshes = duckModel.getMeshes();
     const auto& mats = duckModel.getMaterials();
 
+    const Matrix modelT = duckModel.getModelMatrix().Transpose();;
+
+    Matrix normalMat = duckModel.getModelMatrix();
+    normalMat.Invert();
+    normalMat = normalMat.Transpose();
+
     for (const Mesh& mesh : meshes)
     {
-        // Bind VB
-        const D3D12_VERTEX_BUFFER_VIEW& vbv = mesh.getVBV();
-        cmd->IASetVertexBuffers(0, 1, &vbv);
+        cmd->IASetVertexBuffers(0, 1, &mesh.getVBV());
+        if (mesh.hasIndices()) cmd->IASetIndexBuffer(&mesh.getIBV());
 
         const int matIdx = mesh.getMaterialIndex();
 
-        // Bind material CBV (root param 1 = b1) and SRV (root param 2 = t0)
+        PerInstance perInst{};
+        perInst.modelMat = modelT;
+        perInst.normalMat = normalMat; 
+
+        PhongMaterialData matData{};
+        uint32_t srvIndex = nullSrvIndex;
+
         if (matIdx >= 0 && matIdx < (int)mats.size())
         {
-            cmd->SetGraphicsRootConstantBufferView(1, mats[matIdx].getMaterialBufferAddress());
-            cmd->SetGraphicsRootDescriptorTable(2, modDesc->getGpuHandle(mats[matIdx].getColourSrvIndex()));
+            const auto& srcMat = mats[matIdx];
+
+            if (phong.useOverride)
+            {
+                matData = phong.overrideMat;
+
+                srvIndex = matData.hasDiffuseTex ? srcMat.getColourSrvIndex() : nullSrvIndex;
+            }
+            else
+            {
+                matData = srcMat.getPhong();
+                srvIndex = srcMat.getColourSrvIndex();
+            }
         }
         else
         {
-            // fallback bind something valid
-            cmd->SetGraphicsRootConstantBufferView(1, defaultMaterialBuffer->GetGPUVirtualAddress());
-            cmd->SetGraphicsRootDescriptorTable(2, modDesc->getGpuHandle(nullSrvIndex));
+            matData = phong.overrideMat;
+            srvIndex = nullSrvIndex;
         }
 
-        // Sampler (root param 3 = s0)
-        cmd->SetGraphicsRootDescriptorTable(3, modSampler->getGpuHandle((UINT)selectedSamplerIndex));
+        perInst.material = matData;
 
-        // Draw indexed or non-indexed
-        if (mesh.hasIndices())
-        {
-            const D3D12_INDEX_BUFFER_VIEW& ibv = mesh.getIBV();
-            cmd->IASetIndexBuffer(&ibv);
-            cmd->DrawIndexedInstanced(mesh.getNumIndices(), 1, 0, 0, 0);
-        }
-        else
-        {
-            cmd->DrawInstanced(mesh.getNumVertices(), 1, 0, 0);
-        }
+        auto piAlloc = ring->allocBuffer((uint32_t)sizeof(PerInstance));
+        memcpy(piAlloc.cpu, &perInst, sizeof(PerInstance));
+
+        // b2
+        cmd->SetGraphicsRootConstantBufferView(2, piAlloc.gpu);
+        // t0
+        cmd->SetGraphicsRootDescriptorTable(3, modDesc->getGpuHandle(srvIndex));
+
+        if (mesh.hasIndices()) cmd->DrawIndexedInstanced(mesh.getNumIndices(), 1, 0, 0, 0);
+        else cmd->DrawInstanced(mesh.getNumVertices(), 1, 0, 0);
     }
 
     // Grid & Axis
@@ -140,36 +169,11 @@ struct Vertex {
     Vector2 uv;
 };
 
-/*bool ModulePipeline::createQuadVertexBuffer() {
-    auto modRes = app->getModule<ModuleResources>();
-
-    static Vertex vertices[6] =
-    {
-        { Vector3(-1.0f, -1.0f, 0.0f), Vector2(-0.2f,  1.2f) },
-        { Vector3(-1.0f,  1.0f, 0.0f), Vector2(-0.2f, -0.2f) },
-        { Vector3(1.0f,  1.0f, 0.0f), Vector2(1.2f, -0.2f) },
-
-        { Vector3(-1.0f, -1.0f, 0.0f), Vector2(-0.2f,  1.2f) },
-        { Vector3(1.0f,  1.0f, 0.0f), Vector2(1.2f, -0.2f) },
-        { Vector3(1.0f, -1.0f, 0.0f), Vector2(1.2f,  1.2f) },
-    };
-
-    const UINT64 sizeBytes = sizeof(vertices);
-
-    vertexBuffer = modRes->createDefaultBuffer(vertices, sizeBytes);
-
-    vbv.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-    vbv.SizeInBytes = static_cast<UINT>(sizeBytes);
-    vbv.StrideInBytes = sizeof(Vertex);
-
-    return true;
-}*/
-
 bool ModulePipeline::createRootSignature() {
     auto modD3D12 = app->getModule<ModuleD3D12>();
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    CD3DX12_ROOT_PARAMETER rootParams[4];
+    CD3DX12_ROOT_PARAMETER rootParams[5];
     
     CD3DX12_DESCRIPTOR_RANGE tableRange;
     tableRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0); 
@@ -177,12 +181,13 @@ bool ModulePipeline::createRootSignature() {
     CD3DX12_DESCRIPTOR_RANGE samplerRange;
     samplerRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0, 0);
 
-    rootParams[0].InitAsConstants(sizeof(Matrix) / sizeof(UINT32), 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-    rootParams[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_PIXEL);
-    rootParams[2].InitAsDescriptorTable(1, &tableRange, D3D12_SHADER_VISIBILITY_PIXEL);
-    rootParams[3].InitAsDescriptorTable(1, &samplerRange, D3D12_SHADER_VISIBILITY_PIXEL);
+    rootParams[0].InitAsConstants(sizeof(Matrix) / sizeof(UINT32), 0, 0, D3D12_SHADER_VISIBILITY_VERTEX); // b0
+    rootParams[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL); // b1 
+    rootParams[2].InitAsConstantBufferView(2, 0, D3D12_SHADER_VISIBILITY_ALL); // b2 
+    rootParams[3].InitAsDescriptorTable(1, &tableRange, D3D12_SHADER_VISIBILITY_PIXEL); // t0
+    rootParams[4].InitAsDescriptorTable(1, &samplerRange, D3D12_SHADER_VISIBILITY_PIXEL); // s0
 
-    rootSignatureDesc.Init(4, rootParams, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    rootSignatureDesc.Init(5, rootParams, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     ComPtr<ID3DBlob> blob;
     if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, nullptr)))
@@ -200,12 +205,13 @@ bool ModulePipeline::createPSO() {
 
     std::vector<uint8_t> dataVS, dataPS;
 
-    dataVS = DX::ReadData(L"ExerciseQuadVer.cso");
-    dataPS = DX::ReadData(L"ExerciseFivePix.cso");
+    dataVS = DX::ReadData(L"PhongVS.cso");
+    dataPS = DX::ReadData(L"PhongPS.cso");
 
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {  
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }, 
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0} 
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
     };
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -233,8 +239,6 @@ bool ModulePipeline::createPSO() {
 }
 
 bool ModulePipeline::cleanUp() {
-    defaultMaterialBuffer.Reset();
-    vertexBuffer.Reset();
     rootSignature.Reset();
     pso.Reset();
 
@@ -243,39 +247,19 @@ bool ModulePipeline::cleanUp() {
     return true;
 }
 
-/*bool ModulePipeline::setTextureFromFile(const wchar_t* path)
-{
-    auto modD3D12 = app->getModule<ModuleD3D12>();
-    auto modRes = app->getModule<ModuleResources>();
-    ID3D12Device* device = modD3D12->getDevice();
+void ModulePipeline::initPhongSettings() {
+    phong.lightDir.Normalize();
 
-    ComPtr<ID3D12Resource> newTex = modRes->createTextureFromFile(path);
-    if (!newTex)
-        return false;
-
-    D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-    heapDesc.NumDescriptors = 1;
-    heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-    ComPtr<ID3D12DescriptorHeap> newSrvHeap;
-    if (FAILED(device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&newSrvHeap))))
-        return false;
-
-    D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = newSrvHeap->GetCPUDescriptorHandleForHeapStart();
-    device->CreateShaderResourceView(newTex.Get(), nullptr, cpuHandle);
-
-    texture = newTex;
-    srvHeap = newSrvHeap;
-    textureGpuHandle = srvHeap->GetGPUDescriptorHandleForHeapStart();
-    currentTexturePath = path;
-
-    return true;
-}*/
+    phong.overrideMat.diffuseColour = DirectX::XMFLOAT4(1, 1, 1, 1);
+    phong.overrideMat.Kd = 1.0f;
+    phong.overrideMat.Ks = 0.2f;
+    phong.overrideMat.shininess = 64.0f;
+    phong.overrideMat.hasDiffuseTex = TRUE;
+}
 
 void ModulePipeline::setSamplerIndex(int idx)
 {
     if (idx < 0) idx = 0;
     if (idx > 3) idx = 3; 
-    selectedSamplerIndex = idx;
+    phong.samplerIndex = idx;
 }

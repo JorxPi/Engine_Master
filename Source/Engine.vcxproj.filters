@@ -126,6 +126,7 @@
     <ClInclude Include="ModuleRingBuffer.h">
       <Filter>Modules</Filter>
     </ClInclude>
+    <ClInclude Include="PhongData.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Engine.rc" />
@@ -137,6 +138,7 @@
   <ItemGroup>
     <None Include="SimpleMath.inl" />
     <None Include="imgui.ini" />
+    <None Include="Phong.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="EditorClasses">
@@ -160,6 +162,12 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="ExerciseFivePix.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="PhongVS.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="PhongPS.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PhongData.h"
 #include <string>
 #include <wrl/client.h>
 #include <SimpleMath.h>
@@ -30,15 +31,17 @@ public:
     ID3D12Resource* getColourTex() const { return colourTex.Get(); }
     bool hasColourTex() const { return colourTex != nullptr; }
 
-    D3D12_GPU_VIRTUAL_ADDRESS getMaterialBufferAddress() const { return materialBuffer ? materialBuffer->GetGPUVirtualAddress() : 0; }
     uint32_t getColourSrvIndex() const { return colourSrvIndex; }
+
+    const PhongMaterialData& getPhong() const { return phong; }
+    void setPhong(const PhongMaterialData& p) { phong = p; }
 
 private:
     DirectX::SimpleMath::Vector4 colour = { 1,1,1,1 };
     ComPtr<ID3D12Resource> colourTex;
 
-    MaterialData materialData{};
-    ComPtr<ID3D12Resource> materialBuffer;
     uint32_t colourSrvIndex = 0;
+
+    PhongMaterialData phong{}; 
 };
 

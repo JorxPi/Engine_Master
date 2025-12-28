@@ -31,7 +31,7 @@ public:
 	void altRightClickZoom(float dy);
 	void mouseWheelZoom(float wheel);
 	void orbitDrag(float dx, float dy);
-	void focusOnGeometry();
+	void focusOnGeometry(const Vector3& pivot);
 
 	void requestResize(uint32_t w, uint32_t h);
 
@@ -75,7 +75,9 @@ private:
 	POINT lastMouse = { 0,0 };
 
 	float yaw = 0.0f;
-	float pitch = 0.0f; 
+	float pitch = 0.0f;
+	float orbitYaw = 0.0f;
+	float orbitPitch = 0.0f;
 
 	float lookSensitivity = 0.0020f;  
 	float pitchLimit = DirectX::XMConvertToRadians(89.0f);

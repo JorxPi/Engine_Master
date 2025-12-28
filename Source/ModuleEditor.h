@@ -3,6 +3,8 @@
 #include "Module.h"
 #include "ImGuiPass.h"
 #include "LogConsole.h"
+#include <imgui.h>
+#include "ImGuizmo.h"
 
 class ModuleCameraEditor;
 class ModulePipeline;
@@ -30,17 +32,22 @@ public:
 	void drawAppInfo() const;
 	void drawWindowOptions();
 	void drawHardwareOptions() const;
+	void drawTextureGridWindow(ModulePipeline* pipe);
 
 	// Camera
 	void drawCameraWindow(ModuleCameraEditor* camMod);
 
-	// Texture
-	void drawTextureSamplesWindow(ModulePipeline* pipe);
-	void drawTextureGridWindow(ModulePipeline* pipe);
-	//void drawTextureChangeWindow(ModulePipeline* pipe);
-
 	//Model
 	void drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEditor* cam);
+	void drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEditor* cam);
+
+	void focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam);
+
+	//ImGuizmo
+	void updateGizmoHotkeys();
+	void drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam);
+	void updateGizmoSelection(ModulePipeline* pipe);
+
 
 
 private:
@@ -54,12 +61,12 @@ private:
 	bool showConfig = false;
 	bool showAbout = false;
 	bool showCameraWindow = false;
-	bool showTextureSamples = false;
 	bool showTextureGrid = false;
-	bool showTextureChange = false;
 	bool showGeometryViewer = false;
+	bool showPhongControls = false;
 
-	float gizmoDesiredPixels = 120.0f;
-	float gizmoViewportH = 1.0f;
-
+	ImGuizmo::OPERATION gizmoOp = ImGuizmo::TRANSLATE;
+	ImGuizmo::MODE gizmoMode = ImGuizmo::LOCAL;
+	bool showGizmo = true;
+	bool hasSelection = true;
 };

@@ -12,6 +12,7 @@ public:
     {
         DirectX::SimpleMath::Vector3 position;
         DirectX::SimpleMath::Vector2 texCoord0;
+        DirectX::SimpleMath::Vector3 normal;
     };
 
     void load(const tinygltf::Model& model, const tinygltf::Mesh& mesh, const tinygltf::Primitive& primitive);

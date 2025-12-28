@@ -39,9 +39,6 @@ void ModuleCameraEditor::update()
 
     float dt = app->getElapsedMilis() * 0.001f;
 
-    if (GetAsyncKeyState('F') & 0x0001)
-        focusOnGeometry();
-
     float wheel = app->consumeMouseWheel();
     if (wheel != 0.0f)
         mouseWheelZoom(wheel);
@@ -62,6 +59,12 @@ void ModuleCameraEditor::update()
             lastMouse = cur;
 
             orbitDistance = std::max(0.1f, (camera.position - pivot).Length());
+
+            Vector3 dir = (pivot - camera.position);
+            dir.Normalize();
+
+            orbitPitch = asinf(dir.y);
+            orbitYaw = atan2f(dir.x, dir.z);
             return;
         }
 
@@ -208,19 +211,31 @@ void ModuleCameraEditor::mouseWheelZoom(float wheel)
 
 void ModuleCameraEditor::orbitDrag(float dx, float dy)
 {
-    applyMouseLook(dx, dy);
+    orbitYaw += -dx * lookSensitivity;
+    orbitPitch += -dy * lookSensitivity;
 
-    Vector3 forward = Vector3::Transform(Vector3::Forward, camera.orientation);
+    orbitPitch = std::clamp(orbitPitch, -pitchLimit, pitchLimit);
+
+    Vector3 forward;
+    forward.x = sinf(orbitYaw) * cosf(orbitPitch);
+    forward.y = sinf(orbitPitch);
+    forward.z = cosf(orbitYaw) * cosf(orbitPitch);
     forward.Normalize();
+
     camera.position = pivot - forward * orbitDistance;
+
+    Matrix viewM = Matrix::CreateLookAt(camera.position, pivot, Vector3::Up);
+    Matrix invView = viewM.Invert();
+    camera.orientation = Quaternion::CreateFromRotationMatrix(invView);
+    camera.orientation.Normalize();
 
     viewDirty = true;
 }
 
 
-void ModuleCameraEditor::focusOnGeometry()
+void ModuleCameraEditor::focusOnGeometry(const Vector3& pivotW)
 {
-    pivot = Vector3::Zero;
+    pivot = pivotW;
     isFocused = true;
 
     Vector3 camToPivot = pivot - camera.position;
