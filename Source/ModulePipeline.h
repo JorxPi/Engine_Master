@@ -13,7 +13,7 @@ public:
     void preRender() override;
     bool cleanUp() override;
 
-    void initPhongSettings();
+    void initPBRPhongSettings();
 
     void setSamplerIndex(int i);
 

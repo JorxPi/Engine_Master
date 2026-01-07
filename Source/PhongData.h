@@ -4,18 +4,27 @@ using namespace DirectX::SimpleMath;
 
 struct PhongMaterialData
 {
-    DirectX::XMFLOAT4 diffuseColour;
+    XMFLOAT4 diffuseColour;
     float Kd;
     float Ks;
     float shininess;
     BOOL  hasDiffuseTex;
 };
 
+struct PBRPhongMaterialData
+{
+    XMFLOAT3 diffuseColour;
+    BOOL     hasDiffuseTex;
+
+    XMFLOAT3 specularColour;
+    float    shininess;
+};
+
 struct PerInstance
 {
     Matrix modelMat;
     Matrix normalMat;
-    PhongMaterialData material;
+    PBRPhongMaterialData material;
 };
 
 struct PerFrame
@@ -32,8 +41,11 @@ struct PhongSettings
     Vector3 lightColor = Vector3(1, 1, 1);
     Vector3 ambient = Vector3(0.1f, 0.1f, 0.1f);
 
+    float lightIntensity = 3.0f;
+    float ambientIntensity = 1.0f;
+
     int samplerIndex = 0;
 
     bool useOverride = false;
-    PhongMaterialData overrideMat{};
+    PBRPhongMaterialData overrideMat{};
 };

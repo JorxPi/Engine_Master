@@ -1,9 +1,9 @@
 cbuffer PerFrame : register(b1)
 {
-    float3 L; 
-    float3 Lc; 
-    float3 Ac; 
-    float3 viewPos;
+    float3 L;       float pad0;
+    float3 Lc;      float pad1;
+    float3 Ac;      float pad2;
+    float3 viewPos; float pad3;
 };
 
 cbuffer PerInstance : register(b2)
@@ -11,9 +11,9 @@ cbuffer PerInstance : register(b2)
     float4x4 modelMat;
     float4x4 normalMat;
     
-    float4 diffuseColour;
-    float Kd;
-    float Ks;
+    float3 diffuseColour;
+    uint hasDiffuseTex;
+
+    float3 specularColour;
     float shininess;
-    bool hasDiffuseTex;
 };

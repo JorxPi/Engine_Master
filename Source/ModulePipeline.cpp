@@ -30,7 +30,7 @@ bool ModulePipeline::init() {
         duckModel.getMeshes().size(),
         duckModel.getMaterials().size());
 
-    initPhongSettings();
+    initPBRPhongSettings();
 
     auto device4 = reinterpret_cast<ID3D12Device4*>(modD3D12->getDevice());
     debugDraw = new DebugDrawPass(device4, modD3D12->getCommandQueue());
@@ -84,8 +84,8 @@ void ModulePipeline::preRender() {
     PerFrame perFrame{};
     perFrame.L = phong.lightDir;
     perFrame.L.Normalize();
-    perFrame.Lc = phong.lightColor;
-    perFrame.Ac = phong.ambient;
+    perFrame.Lc = phong.lightColor * phong.lightIntensity;
+    perFrame.Ac = phong.ambient * phong.ambientIntensity;
     perFrame.viewPos = camera->readCamera().position;
 
     auto pfAlloc = ring->allocBuffer((uint32_t)sizeof(PerFrame));
@@ -117,7 +117,7 @@ void ModulePipeline::preRender() {
         perInst.modelMat = modelT;
         perInst.normalMat = normalMat; 
 
-        PhongMaterialData matData{};
+        PBRPhongMaterialData matData{};
         uint32_t srvIndex = nullSrvIndex;
 
         if (matIdx >= 0 && matIdx < (int)mats.size())
@@ -132,7 +132,7 @@ void ModulePipeline::preRender() {
             }
             else
             {
-                matData = srcMat.getPhong();
+                matData = srcMat.getPBRPhong();
                 srvIndex = srcMat.getColourSrvIndex();
             }
         }
@@ -247,14 +247,15 @@ bool ModulePipeline::cleanUp() {
     return true;
 }
 
-void ModulePipeline::initPhongSettings() {
+void ModulePipeline::initPBRPhongSettings()
+{
     phong.lightDir.Normalize();
 
-    phong.overrideMat.diffuseColour = DirectX::XMFLOAT4(1, 1, 1, 1);
-    phong.overrideMat.Kd = 1.0f;
-    phong.overrideMat.Ks = 0.2f;
-    phong.overrideMat.shininess = 64.0f;
+    phong.overrideMat.diffuseColour = XMFLOAT3(1, 1, 1);
     phong.overrideMat.hasDiffuseTex = TRUE;
+
+    phong.overrideMat.specularColour = XMFLOAT3(0.04f, 0.04f, 0.04f);
+    phong.overrideMat.shininess = 64.0f;
 }
 
 void ModulePipeline::setSamplerIndex(int idx)

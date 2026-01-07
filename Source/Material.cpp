@@ -57,9 +57,9 @@ void Material::load(const tinygltf::Model& model, const tinygltf::PbrMetallicRou
     else
         colourSrvIndex = modDesc->createNullTexture2DSRV();
 
-    phong.diffuseColour = DirectX::XMFLOAT4(colour.x, colour.y, colour.z, colour.w);
-    phong.Kd = 1.0f;
-    phong.Ks = 0.2f;
-    phong.shininess = 64.0f;
-    phong.hasDiffuseTex = (material.baseColorTexture.index >= 0) ? TRUE : FALSE;
+    pbrPhong.diffuseColour = XMFLOAT3(colour.x, colour.y, colour.z);
+    pbrPhong.hasDiffuseTex = (material.baseColorTexture.index >= 0) ? TRUE : FALSE;
+
+    pbrPhong.specularColour = XMFLOAT3(0.04f, 0.04f, 0.04f);
+    pbrPhong.shininess = 64.0f;
 }

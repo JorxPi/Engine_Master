@@ -36,7 +36,6 @@
     <ClCompile Include="ModulePipeline.cpp">
       <Filter>Modules</Filter>
     </ClCompile>
-    <ClCompile Include="Timer.cpp" />
     <ClCompile Include="ModuleCameraEditor.cpp">
       <Filter>Modules</Filter>
     </ClCompile>
@@ -57,6 +56,9 @@
     </ClCompile>
     <ClCompile Include="ModuleRingBuffer.cpp">
       <Filter>Modules</Filter>
+    </ClCompile>
+    <ClCompile Include="Timer.cpp">
+      <Filter>Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -103,7 +105,6 @@
     <ClInclude Include="ModulePipeline.h">
       <Filter>Modules</Filter>
     </ClInclude>
-    <ClInclude Include="Timer.h" />
     <ClInclude Include="ModuleCameraEditor.h">
       <Filter>Modules</Filter>
     </ClInclude>
@@ -119,14 +120,21 @@
     <ClInclude Include="Mesh.h">
       <Filter>Geometry</Filter>
     </ClInclude>
-    <ClInclude Include="gltf_utils.h" />
     <ClInclude Include="ModuleDescriptors.h">
       <Filter>Modules</Filter>
     </ClInclude>
     <ClInclude Include="ModuleRingBuffer.h">
       <Filter>Modules</Filter>
     </ClInclude>
-    <ClInclude Include="PhongData.h" />
+    <ClInclude Include="PhongData.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="gltf_utils.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Engine.rc" />
@@ -138,7 +146,9 @@
   <ItemGroup>
     <None Include="SimpleMath.inl" />
     <None Include="imgui.ini" />
-    <None Include="Phong.hlsli" />
+    <None Include="Phong.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="EditorClasses">
@@ -152,6 +162,9 @@
     </Filter>
     <Filter Include="Geometry">
       <UniqueIdentifier>{78732882-0486-43a0-ba51-c5d5fc0e65a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{455a8c74-c71e-40a4-a004-e6e628d25085}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

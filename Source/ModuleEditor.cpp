@@ -500,8 +500,11 @@ void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEdi
             phong.lightDir.Normalize();
         }
 
-        ImGui::ColorEdit3("Light Color", (float*)&phong.lightColor, ImGuiColorEditFlags_NoAlpha);
-        ImGui::ColorEdit3("Ambient", (float*)&phong.ambient, ImGuiColorEditFlags_NoAlpha);
+        ImGui::ColorEdit3("Light Color", (float*)&phong.lightColor);
+        ImGui::DragFloat("Light Intensity", &phong.lightIntensity, 0.1f, 0.0f, 20.0f);
+
+        ImGui::ColorEdit3("Ambient", (float*)&phong.ambient);
+        ImGui::DragFloat("Ambient Intensity", &phong.ambientIntensity, 0.05f, 0.0f, 5.0f);
     }
 
     ImGui::Separator();
@@ -528,30 +531,36 @@ void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEdi
     // Material override
     if (ImGui::CollapsingHeader("Material Override", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::Checkbox("Use Override Material", &phong.useOverride);
+        ImGui::Checkbox("Show Texture Material", &phong.useOverride);
 
         if (phong.useOverride)
         {
-            float col[4] = {
+            float col[3] = {
                 phong.overrideMat.diffuseColour.x,
                 phong.overrideMat.diffuseColour.y,
                 phong.overrideMat.diffuseColour.z,
-                phong.overrideMat.diffuseColour.w
             };
 
-            if (ImGui::ColorEdit4("Diffuse Colour", col, ImGuiColorEditFlags_NoInputs))
+            if (ImGui::ColorEdit3("Diffuse Colour", col, ImGuiColorEditFlags_NoInputs))
             {
-                phong.overrideMat.diffuseColour = DirectX::XMFLOAT4(col[0], col[1], col[2], col[3]);
+                phong.overrideMat.diffuseColour = DirectX::XMFLOAT3(col[0], col[1], col[2]);
             }
 
-            bool hasTex = phong.overrideMat.hasDiffuseTex ? true : false;
+            bool hasTex = (phong.overrideMat.hasDiffuseTex != 0);
             if (ImGui::Checkbox("Use Diffuse Texture", &hasTex))
-            {
                 phong.overrideMat.hasDiffuseTex = hasTex ? TRUE : FALSE;
-            }
 
-            ImGui::DragFloat("Kd", &phong.overrideMat.Kd, 0.01f, 0.0f, 5.0f);
-            ImGui::DragFloat("Ks", &phong.overrideMat.Ks, 0.01f, 0.0f, 5.0f);
+            ImGui::Separator();
+
+            float spec[3] = {
+                phong.overrideMat.specularColour.x,
+                phong.overrideMat.specularColour.y,
+                phong.overrideMat.specularColour.z
+            };
+
+            if (ImGui::ColorEdit3("Specular Colour (F0)", spec, ImGuiColorEditFlags_NoInputs))
+                phong.overrideMat.specularColour = DirectX::XMFLOAT3(spec[0], spec[1], spec[2]);
+
             ImGui::DragFloat("Shininess", &phong.overrideMat.shininess, 1.0f, 1.0f, 512.0f);
         }
     }

@@ -33,8 +33,8 @@ public:
 
     uint32_t getColourSrvIndex() const { return colourSrvIndex; }
 
-    const PhongMaterialData& getPhong() const { return phong; }
-    void setPhong(const PhongMaterialData& p) { phong = p; }
+    const PBRPhongMaterialData& getPBRPhong() const { return pbrPhong; }
+    void setPBRPhong(const PBRPhongMaterialData& p) { pbrPhong = p; }
 
 private:
     DirectX::SimpleMath::Vector4 colour = { 1,1,1,1 };
@@ -42,6 +42,6 @@ private:
 
     uint32_t colourSrvIndex = 0;
 
-    PhongMaterialData phong{}; 
+    PBRPhongMaterialData pbrPhong{};
 };
 
