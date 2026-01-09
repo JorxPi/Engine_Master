@@ -21,6 +21,7 @@ public:
 	void logg(const char* format, ...);
 
 	void drawDocSpace();
+	void buildDefaultLayout(ImGuiID dockspaceId);
 
 	// View
 	void drawConsoleWindow();
@@ -29,7 +30,7 @@ public:
 
 	// Options
 	void drawConfigWindow();
-	void drawAppInfo() const;
+	void drawAppInfo();
 	void drawWindowOptions();
 	void drawHardwareOptions() const;
 	void drawTextureGridWindow(ModulePipeline* pipe);
@@ -52,21 +53,23 @@ public:
 	void drawSceneWindow(ModulePipeline* pipe, ModuleCameraEditor* cam);
 
 
-
 private:
 	HWND hWnd = nullptr;
 	std::unique_ptr<ImGuiPass> imguiPass;
+	bool dockBuilt = false;
+	bool requestResetLayout = false;
 
 	LogConsole logConsole;
 
-	bool showConsole = false;  
+	bool showConsole = true;  
 	bool showDemo = false;
 	bool showConfig = false;
+	bool showApplication = true;
 	bool showAbout = false;
 	bool showCameraWindow = false;
 	bool showTextureGrid = false;
-	bool showGeometryViewer = false;
-	bool showPhongControls = false;
+	bool showGeometryViewer = true;
+	bool showPhongControls = true;
 
 	//ImGuizmo
 	ImGuizmo::OPERATION gizmoOp = ImGuizmo::TRANSLATE;

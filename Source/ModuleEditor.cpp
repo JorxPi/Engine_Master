@@ -9,7 +9,7 @@
 #include <thread>
 #include "ModuleShaderDescriptors.h"
 #include "ModuleSampler.h"
-
+#include <imgui_internal.h>
 
 ModuleEditor::ModuleEditor(HWND windowHandle)
     : hWnd(windowHandle) {
@@ -30,6 +30,8 @@ void ModuleEditor::preRender() {
     if (!imguiPass) return;
     imguiPass->startFrame();
     ImGuizmo::BeginFrame();
+
+    drawDocSpace();
 
     RECT rc{};
     GetClientRect(hWnd, &rc);
@@ -55,7 +57,12 @@ void ModuleEditor::preRender() {
         if (ImGui::BeginMenu("Options"))
         {
             ImGui::MenuItem("Configuration", nullptr, &showConfig);
+            ImGui::MenuItem("Application", nullptr, &showApplication);
             ImGui::MenuItem("Debug Grid", nullptr, &showTextureGrid);
+
+            if (ImGui::MenuItem("Reset Layout"))
+                requestResetLayout = true;
+
             ImGui::EndMenu();
         }
 
@@ -74,8 +81,6 @@ void ModuleEditor::preRender() {
 
         ImGui::EndMainMenuBar();
 
-        drawDocSpace();
-
         drawSceneWindow(pipe, cam);
 
     }
@@ -85,6 +90,7 @@ void ModuleEditor::preRender() {
     drawAboutWindow();
 
     drawConfigWindow();
+    drawAppInfo();
 
     drawCameraWindow(cam);
 
@@ -143,12 +149,77 @@ void ModuleEditor::logg(const char* format, ...) {
 }
 
 void ModuleEditor::drawDocSpace() {
-    ImGuiDockNodeFlags dockspaceFlags =
-        ImGuiDockNodeFlags_PassthruCentralNode |
-        ImGuiDockNodeFlags_NoDockingOverCentralNode;
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(vp->WorkPos);
+    ImGui::SetNextWindowSize(vp->WorkSize);
+    ImGui::SetNextWindowViewport(vp->ID);
 
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockspaceFlags);
+    ImGuiWindowFlags hostFlags =
+        ImGuiWindowFlags_NoDocking |
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+
+    ImGui::Begin("DockSpaceHost", nullptr, hostFlags);
+
+    ImGui::PopStyleVar(3);
+
+    ImGuiID dockspaceId = ImGui::GetID("MainDockSpace");
+
+    if (requestResetLayout)
+    {
+        ImGui::ClearIniSettings();
+
+        ImGui::DockBuilderRemoveNode(dockspaceId);
+
+        dockBuilt = false;
+        requestResetLayout = false;
+    }
+
+    ImGuiDockNodeFlags dockFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+    ImGui::DockSpace(dockspaceId, ImVec2(0, 0), dockFlags);
+
+    if (!dockBuilt)
+    {
+        buildDefaultLayout(dockspaceId);
+        dockBuilt = true;
+    }
+
+    ImGui::End();
 }
+
+void ModuleEditor::buildDefaultLayout(ImGuiID dockspaceId)
+{
+    ImGui::DockBuilderRemoveNode(dockspaceId);
+    ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dockspaceId, ImGui::GetMainViewport()->WorkSize);
+
+    ImGuiID dockMain = dockspaceId;
+    ImGuiID dockRight = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Right, 0.28f, nullptr, &dockMain);
+    ImGuiID dockBottom = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Down, 0.30f, nullptr, &dockMain);
+
+    ImGuiID dockBottomLeft = ImGui::DockBuilderSplitNode(dockBottom, ImGuiDir_Left, 0.50f, nullptr, &dockBottom);
+    ImGuiID dockBottomRight = dockBottom;
+
+    ImGui::DockBuilderDockWindow("Scene", dockMain);
+
+    ImGui::DockBuilderDockWindow("Console", dockBottomLeft);
+    ImGui::DockBuilderDockWindow("Application", dockBottomRight);
+
+    ImGui::DockBuilderDockWindow("Geometry Viewer", dockRight);
+    ImGui::DockBuilderDockWindow("Phong Controls", dockRight);
+
+    ImGui::DockBuilderFinish(dockspaceId);
+}
+
+
 
 void ModuleEditor::drawConsoleWindow() {
     if (showConsole)
@@ -193,9 +264,6 @@ void ModuleEditor::drawConfigWindow() {
     {
         ImGui::Begin("Configuration", &showConfig);
 
-        if (ImGui::CollapsingHeader("Application"))
-            drawAppInfo();
-
         if (ImGui::CollapsingHeader("Window"))
             drawWindowOptions();
 
@@ -206,7 +274,11 @@ void ModuleEditor::drawConfigWindow() {
     }
 }
 
-void ModuleEditor::drawAppInfo() const {
+void ModuleEditor::drawAppInfo() {
+    if (!showApplication) return;
+
+    if (!ImGui::Begin("Application", &showApplication)) { ImGui::End(); return; }
+
     static std::array<float, 100> fps_log = {};
     static int logIndex = 0;
     static int maxFPS = 60;
@@ -238,7 +310,10 @@ void ModuleEditor::drawAppInfo() const {
     ImVec2 graphSize(graphWidth, 100);
 
     ImGui::Text("Framerate: %.1f FPS", fps);
-    ImGui::PlotHistogram( "##Framerate", fps_log.data(), static_cast<int>(fps_log.size()), logIndex, nullptr, 0.0f, 100.0f, graphSize);
+    ImGui::PlotHistogram("##Framerate", fps_log.data(), static_cast<int>(fps_log.size()), logIndex, nullptr, 0.0f, 100.0f, graphSize);
+
+    ImGui::End();
+    
 }
 
 void ModuleEditor::drawWindowOptions() {
@@ -466,9 +541,15 @@ void ModuleEditor::drawTextureGridWindow(ModulePipeline* pipe) {
 
 void ModuleEditor::drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEditor* cam)
 {
-    if (!showGeometryViewer || !pipe || !cam) return;
+    if (!showGeometryViewer) return;
 
     if (!ImGui::Begin("Geometry Viewer", &showGeometryViewer))
+    {
+        ImGui::End();
+        return;
+    }
+
+    if (!pipe || !cam)
     {
         ImGui::End();
         return;
@@ -505,9 +586,15 @@ void ModuleEditor::drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEd
 
 void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEditor* cam)
 {
-    if (!showPhongControls || !pipe || !cam) return;
+    if (!showPhongControls) return;
 
     if (!ImGui::Begin("Phong Controls", &showPhongControls))
+    {
+        ImGui::End();
+        return;
+    }
+
+    if (!pipe || !cam)
     {
         ImGui::End();
         return;
@@ -681,9 +768,6 @@ void ModuleEditor::drawSceneWindow(ModulePipeline* pipe, ModuleCameraEditor* cam
     sceneFocused = false;
     sceneHovered = false;
     sceneDrawList = nullptr;
-
-    ImGui::SetNextWindowSize(ImVec2(1200, 800), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(20, 60), ImGuiCond_FirstUseEver);
 
     if (!ImGui::Begin("Scene"))
     {

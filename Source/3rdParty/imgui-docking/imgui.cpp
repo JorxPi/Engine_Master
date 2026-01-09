@@ -1569,7 +1569,7 @@ ImGuiIO::ImGuiIO()
     // Docking options (when ImGuiConfigFlags_DockingEnable is set)
     ConfigDockingNoSplit = false;
     ConfigDockingWithShift = false;
-    ConfigDockingAlwaysTabBar = false;
+    ConfigDockingAlwaysTabBar = true;
     ConfigDockingTransparentPayload = false;
 
     // Viewport options (when ImGuiConfigFlags_ViewportsEnable is set)
