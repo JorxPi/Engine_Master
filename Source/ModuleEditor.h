@@ -48,6 +48,9 @@ public:
 	void drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam);
 	void updateGizmoSelection(ModulePipeline* pipe);
 
+	//Scene
+	void drawSceneWindow(ModulePipeline* pipe, ModuleCameraEditor* cam);
+
 
 
 private:
@@ -65,8 +68,16 @@ private:
 	bool showGeometryViewer = false;
 	bool showPhongControls = false;
 
+	//ImGuizmo
 	ImGuizmo::OPERATION gizmoOp = ImGuizmo::TRANSLATE;
 	ImGuizmo::MODE gizmoMode = ImGuizmo::LOCAL;
 	bool showGizmo = true;
 	bool hasSelection = true;
+
+	//Scene
+	ImVec2 sceneCanvasSize = ImVec2(0, 0);
+	ImVec2 sceneCursorScreenPos = ImVec2(0, 0);
+	bool sceneFocused = false;
+	bool sceneHovered = false;
+	ImDrawList* sceneDrawList = nullptr;
 };

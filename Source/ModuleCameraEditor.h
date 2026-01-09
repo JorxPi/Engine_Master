@@ -35,12 +35,14 @@ public:
 
 	void requestResize(uint32_t w, uint32_t h);
 
-	void setFOV(float horizontalFov);
+	void setFOV(float verticalFov);
 	void setAspectRatio(float asp);
 	void setPlaneDistances(float nearP, float farP);
 	void setPosition(const Vector3& p);
 	void setOrientation(const Quaternion& q);
 	void setLookAt(const Vector3& target, const Vector3& worldUp = Vector3::Up);
+	void setSceneInput(bool hovered, bool focused) { sceneHovered = hovered; sceneFocused = focused; }
+
 
 	Camera& editCamera();
 	const Camera& readCamera() const;
@@ -89,4 +91,7 @@ private:
 	bool isFocused = false;
 	float orbitDistance = 10.0f;
 	bool wasOrbitDown = false;
+
+	bool sceneHovered = false;
+	bool sceneFocused = false;
 };

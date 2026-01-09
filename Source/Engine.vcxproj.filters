@@ -51,14 +51,23 @@
     <ClCompile Include="Mesh.cpp">
       <Filter>Geometry</Filter>
     </ClCompile>
-    <ClCompile Include="ModuleDescriptors.cpp">
-      <Filter>Modules</Filter>
-    </ClCompile>
     <ClCompile Include="ModuleRingBuffer.cpp">
       <Filter>Modules</Filter>
     </ClCompile>
     <ClCompile Include="Timer.cpp">
       <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleShaderDescriptors.cpp">
+      <Filter>Modules\Descriptors</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleDSVDescriptors.cpp">
+      <Filter>Modules\Descriptors</Filter>
+    </ClCompile>
+    <ClCompile Include="ModuleRTVDescriptors.cpp">
+      <Filter>Modules\Descriptors</Filter>
+    </ClCompile>
+    <ClCompile Include="RenderTexture.cpp">
+      <Filter>Rendering</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -120,9 +129,6 @@
     <ClInclude Include="Mesh.h">
       <Filter>Geometry</Filter>
     </ClInclude>
-    <ClInclude Include="ModuleDescriptors.h">
-      <Filter>Modules</Filter>
-    </ClInclude>
     <ClInclude Include="ModuleRingBuffer.h">
       <Filter>Modules</Filter>
     </ClInclude>
@@ -134,6 +140,21 @@
     </ClInclude>
     <ClInclude Include="gltf_utils.h">
       <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleShaderDescriptors.h">
+      <Filter>Modules\Descriptors</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleDSVDescriptors.h">
+      <Filter>Modules\Descriptors</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleRTVDescriptors.h">
+      <Filter>Modules\Descriptors</Filter>
+    </ClInclude>
+    <ClInclude Include="FreeListAllocator.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderTexture.h">
+      <Filter>Rendering</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -165,6 +186,12 @@
     </Filter>
     <Filter Include="Utils">
       <UniqueIdentifier>{455a8c74-c71e-40a4-a004-e6e628d25085}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Modules\Descriptors">
+      <UniqueIdentifier>{2e7e184c-0f47-4c6b-aea9-bb1fafc3d37c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Rendering">
+      <UniqueIdentifier>{c558bbf8-e642-4fb1-a8d9-2dc8ed17526d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -2,7 +2,7 @@
 #include "Material.h"
 #include "Application.h"
 #include "ModuleResources.h"
-#include "ModuleDescriptors.h"
+#include "ModuleShaderDescriptors.h"
 
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #define TINYGLTF_NO_STB_IMAGE
@@ -51,7 +51,7 @@ void Material::load(const tinygltf::Model& model, const tinygltf::PbrMetallicRou
         }
     }
 
-    auto modDesc = app->getModule<ModuleDescriptors>();
+    auto modDesc = app->getModule<ModuleShaderDescriptors>();
     if (colourTex)
         colourSrvIndex = modDesc->createTexture2DSRV(colourTex.Get());
     else

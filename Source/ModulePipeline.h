@@ -3,7 +3,7 @@
 #include "DebugDrawPass.h"
 #include "Model.h"
 #include "PhongData.h"
-
+#include "RenderTexture.h"
 
 class ModulePipeline : public Module
 {
@@ -16,6 +16,8 @@ public:
     void initPBRPhongSettings();
 
     void setSamplerIndex(int i);
+
+    void setSceneSize(int w, int h);
 
     void setShowGrid(bool show) { showGrid = show; }
     void setShowAxis(bool show) { showAxis = show; }
@@ -30,6 +32,8 @@ public:
 
     PhongSettings& editPhong() { return phong; }
     const PhongSettings& getPhong() const { return phong; }
+
+    RenderTexture* getSceneRT() const { return sceneRT.get(); }
 
 private:
     bool createRootSignature();
@@ -46,6 +50,7 @@ private:
 
     PhongSettings phong;
 
+    std::unique_ptr<RenderTexture> sceneRT;
 
     // Grid
     DebugDrawPass* debugDraw = nullptr;

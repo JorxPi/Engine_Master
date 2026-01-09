@@ -148,3 +148,49 @@ ComPtr<ID3D12Resource> ModuleResources::createTextureFromFile(const wchar_t* fil
     return texture;
 
 }
+
+ComPtr<ID3D12Resource> ModuleResources::createRenderTarget(DXGI_FORMAT format, UINT width, UINT height, const float clearColor[4])
+{
+    auto modD3D12 = app->getModule<ModuleD3D12>();
+    ID3D12Device* device = modD3D12->getDevice();
+
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(format, width, height, 1, 1 );
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+    D3D12_CLEAR_VALUE clear = {};
+    clear.Format = format;
+    clear.Color[0] = clearColor[0];
+    clear.Color[1] = clearColor[1];
+    clear.Color[2] = clearColor[2];
+    clear.Color[3] = clearColor[3];
+
+    ComPtr<ID3D12Resource> texture;
+    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
+
+    if (FAILED(device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COMMON, &clear, IID_PPV_ARGS(&texture))))
+        return nullptr;
+
+    return texture;
+}
+
+ComPtr<ID3D12Resource> ModuleResources::createDepthStencil(DXGI_FORMAT format, UINT width, UINT height, float clearDepth, UINT8 clearStencil)
+{
+    auto modD3D12 = app->getModule<ModuleD3D12>();
+    ID3D12Device* device = modD3D12->getDevice();
+
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(format,width,height, 1, 1);
+    desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+    D3D12_CLEAR_VALUE clear = {};
+    clear.Format = format;
+    clear.DepthStencil.Depth = clearDepth;
+    clear.DepthStencil.Stencil = clearStencil;
+
+    ComPtr<ID3D12Resource> texture;
+    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_DEFAULT);
+
+    if (FAILED(device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear, IID_PPV_ARGS(&texture))))
+        return nullptr;
+
+    return texture;
+}

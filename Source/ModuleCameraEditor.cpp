@@ -29,7 +29,9 @@ void ModuleCameraEditor::update()
         return;
     }
 
-    if (!rmbDown && (io.WantCaptureKeyboard || io.WantCaptureMouse))
+    const bool allowSceneInput = (sceneHovered || sceneFocused);
+
+    if (!rmbDown && (io.WantCaptureKeyboard || io.WantCaptureMouse) && !allowSceneInput)
     {
         rmbMode = RMBMode::None;
         wasRmbDown = false;
@@ -39,13 +41,17 @@ void ModuleCameraEditor::update()
 
     float dt = app->getElapsedMilis() * 0.001f;
 
-    float wheel = app->consumeMouseWheel();
-    if (wheel != 0.0f)
-        mouseWheelZoom(wheel);
+    if (sceneHovered)
+    {
+        float wheel = app->consumeMouseWheel();
+        if (wheel != 0.0f)
+            mouseWheelZoom(wheel);
+    }
 
     POINT cur{};
     GetCursorPos(&cur);
 
+    //Orbit
     if (altDown && lmbDown)
     {
         if (!isFocused) {
@@ -274,23 +280,21 @@ void ModuleCameraEditor::requestResize(uint32_t w, uint32_t h) {
     if (h == 0) h = 1;
 
     camera.aspect = float(w) / float(h);
-    camera.fovY = calculateVerticalFovFromHorizontal(camera.fovX, camera.aspect);
     projDirty = true;
 }
 
-void ModuleCameraEditor::setFOV(float horizontalFov)
+void ModuleCameraEditor::setFOV(float verticalFov)
 {
-    horizontalFov = std::clamp(horizontalFov, DirectX::XMConvertToRadians(1.0f), DirectX::XMConvertToRadians(179.0f));
+    camera.fovY = std::clamp(verticalFov,
+        DirectX::XMConvertToRadians(1.0f),
+        DirectX::XMConvertToRadians(179.0f));
 
-    camera.fovX = horizontalFov;
-    camera.fovY = calculateVerticalFovFromHorizontal(camera.fovX, camera.aspect);
     projDirty = true;
 }
 
 void ModuleCameraEditor::setAspectRatio(float asp)
 {
     camera.aspect = std::max(asp, 0.0001f);
-    camera.fovY = calculateVerticalFovFromHorizontal(camera.fovX, camera.aspect);
     projDirty = true;
 }
 

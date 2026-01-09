@@ -7,7 +7,9 @@
 #include "ModulePipeline.h"
 #include "ModuleCameraEditor.h"
 #include "ModuleSampler.h"
-#include "ModuleDescriptors.h"
+#include "ModuleShaderDescriptors.h"
+#include "ModuleRTVDescriptors.h"
+#include "ModuleDSVDescriptors.h"
 #include "ModuleRingBuffer.h"
 
 
@@ -20,7 +22,9 @@ Application::Application(int argc, wchar_t** argv, void* hWnd)
     modules.push_back(new ModuleResources());
     modules.push_back(new ModuleCameraEditor());
     modules.push_back(new ModuleSampler());
-    modules.push_back(new ModuleDescriptors());
+    modules.push_back(new ModuleShaderDescriptors());
+    modules.push_back(new ModuleRTVDescriptors());
+    modules.push_back(new ModuleDSVDescriptors());
     modules.push_back(new ModulePipeline());
 }
 

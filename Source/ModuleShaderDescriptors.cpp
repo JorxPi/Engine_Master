@@ -1,14 +1,12 @@
 #include "Globals.h"
-#include "ModuleDescriptors.h"
+#include "ModuleShaderDescriptors.h"
 #include "Application.h"
 #include "ModuleD3D12.h"
 
-bool ModuleDescriptors::init()
+bool ModuleShaderDescriptors::init()
 {
     auto modD3D12 = app->getModule<ModuleD3D12>();
     ID3D12Device* device = modD3D12->getDevice();
-
-    count = maxDescriptors;
 
     D3D12_DESCRIPTOR_HEAP_DESC desc = {};
     desc.NumDescriptors = maxDescriptors;
@@ -21,36 +19,22 @@ bool ModuleDescriptors::init()
     descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     cpuStart = heap->GetCPUDescriptorHandleForHeapStart();
     gpuStart = heap->GetGPUDescriptorHandleForHeapStart();
-    current = 0;
 
+    allocator.init(maxDescriptors);
     return true;
 }
 
-bool ModuleDescriptors::cleanUp()
+bool ModuleShaderDescriptors::cleanUp()
 {
     heap.Reset();
-    current = 0;
-    count = 0;
     descriptorSize = 0;
+    allocator.reset();
     return true;
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE ModuleDescriptors::getCpuHandle(uint32_t index) const
+uint32_t ModuleShaderDescriptors::createTexture2DSRV(ID3D12Resource* tex)
 {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE h(cpuStart, index, descriptorSize);
-    return h;
-}
-
-D3D12_GPU_DESCRIPTOR_HANDLE ModuleDescriptors::getGpuHandle(uint32_t index) const
-{
-    CD3DX12_GPU_DESCRIPTOR_HANDLE h(gpuStart, index, descriptorSize);
-    return h;
-}
-
-uint32_t ModuleDescriptors::createTexture2DSRV(ID3D12Resource* tex)
-{
-    _ASSERTE(current < count);
-    uint32_t index = current++;
+    uint32_t index = allocator.alloc();
 
     auto modD3D12 = app->getModule<ModuleD3D12>();
     ID3D12Device* device = modD3D12->getDevice();
@@ -59,10 +43,9 @@ uint32_t ModuleDescriptors::createTexture2DSRV(ID3D12Resource* tex)
     return index;
 }
 
-uint32_t ModuleDescriptors::createNullTexture2DSRV()
+uint32_t ModuleShaderDescriptors::createNullTexture2DSRV()
 {
-    _ASSERTE(current < count);
-    uint32_t index = current++;
+    uint32_t index = allocator.alloc();
 
     auto modD3D12 = app->getModule<ModuleD3D12>();
     ID3D12Device* device = modD3D12->getDevice();
@@ -77,4 +60,14 @@ uint32_t ModuleDescriptors::createNullTexture2DSRV()
 
     device->CreateShaderResourceView(nullptr, &srvDesc, getCpuHandle(index));
     return index;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE ModuleShaderDescriptors::getCpuHandle(uint32_t index) const
+{
+    return CD3DX12_CPU_DESCRIPTOR_HANDLE(cpuStart, index, descriptorSize);
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE ModuleShaderDescriptors::getGpuHandle(uint32_t index) const
+{
+    return CD3DX12_GPU_DESCRIPTOR_HANDLE(gpuStart, index, descriptorSize);
 }

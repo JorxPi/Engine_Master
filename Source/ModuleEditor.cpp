@@ -7,6 +7,8 @@
 #include "imgui.h"
 #include "ImGuizmo.h"
 #include <thread>
+#include "ModuleShaderDescriptors.h"
+#include "ModuleSampler.h"
 
 
 ModuleEditor::ModuleEditor(HWND windowHandle)
@@ -14,11 +16,12 @@ ModuleEditor::ModuleEditor(HWND windowHandle)
 }
 
 bool ModuleEditor::postInit() {
-	auto modRender = app->getModule<ModuleD3D12>();
-    if (!modRender) return false;
+    auto modRender = app->getModule<ModuleD3D12>();
+    auto shaderDesc = app->getModule<ModuleShaderDescriptors>();
 
-    imguiPass = std::make_unique<ImGuiPass>(modRender->getDevice(), modRender->getWindowHandle());
-    if (imguiPass) LOG("Console initialized successfully!");
+    uint32_t imguiIdx = shaderDesc->allocIndex();
+
+    imguiPass = std::make_unique<ImGuiPass>(modRender->getDevice(), modRender->getWindowHandle(), shaderDesc->getCpuHandle(imguiIdx), shaderDesc->getGpuHandle(imguiIdx));
 
     return imguiPass != nullptr;
 }
@@ -32,8 +35,6 @@ void ModuleEditor::preRender() {
     GetClientRect(hWnd, &rc);
     float w = float(rc.right - rc.left);
     float h = float(rc.bottom - rc.top);
-
-    ImGuizmo::SetRect(0, 0, w, h);
 
     auto* pipe = app->getModule<ModulePipeline>();
     auto* cam = app->getModule<ModuleCameraEditor>();
@@ -75,6 +76,8 @@ void ModuleEditor::preRender() {
 
         drawDocSpace();
 
+        drawSceneWindow(pipe, cam);
+
     }
 
     drawConsoleWindow();
@@ -98,6 +101,33 @@ void ModuleEditor::preRender() {
 
 void ModuleEditor::render() {
 	auto modRender = app->getModule<ModuleD3D12>();
+    auto* shaderDesc = app->getModule<ModuleShaderDescriptors>();
+    auto* samplerMod = app->getModule<ModuleSampler>();
+
+    ID3D12GraphicsCommandList* cmd = modRender->getCommandList();
+
+    RECT rc{};
+    GetClientRect(modRender->getWindowHandle(), &rc);
+    float w = float(rc.right - rc.left);
+    float h = float(rc.bottom - rc.top);
+
+    D3D12_VIEWPORT vp{ 0.0f, 0.0f, w, h, 0.0f, 1.0f };
+    D3D12_RECT sc{ 0, 0, (LONG)w, (LONG)h };
+    cmd->RSSetViewports(1, &vp);
+    cmd->RSSetScissorRects(1, &sc);
+
+    ID3D12DescriptorHeap* heaps[2] = {};
+    uint32_t heapCount = 0;
+
+    if (shaderDesc && shaderDesc->getHeap())
+        heaps[heapCount++] = shaderDesc->getHeap();
+
+    if (samplerMod && samplerMod->getHeap())
+        heaps[heapCount++] = samplerMod->getHeap();
+
+    if (heapCount > 0)
+        cmd->SetDescriptorHeaps(heapCount, heaps);
+
     D3D12_CPU_DESCRIPTOR_HANDLE rtv = modRender->getCurrentRTV();
 	imguiPass->record(modRender->getCommandList(), rtv);
 }
@@ -571,7 +601,7 @@ void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEdi
 void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
     ImGuiIO& io = ImGui::GetIO();
 
-    if (ImGui::IsKeyPressed(ImGuiKey_F) && !io.WantCaptureKeyboard && !ImGuizmo::IsUsing())
+    if ((sceneHovered || sceneFocused) && ImGui::IsKeyPressed(ImGuiKey_F) && !io.WantTextInput && !ImGuizmo::IsUsing())
     {
         if (pipe && cam)
         {
@@ -600,13 +630,14 @@ void ModuleEditor::updateGizmoHotkeys()
 
 void ModuleEditor::drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam)
 {
-    if (!showGizmo || !pipe || !cam || !hasSelection) return;
+    if (!showGizmo || !pipe || !cam || !hasSelection || !sceneDrawList) return;
 
     Model& model = pipe->getModel();
     Matrix objectMatrix = model.getModelMatrix();
 
-    ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
+    ImGuizmo::SetDrawlist(sceneDrawList);
     ImGuizmo::SetOrthographic(false);
+    ImGuizmo::SetRect(sceneCursorScreenPos.x, sceneCursorScreenPos.y, sceneCanvasSize.x, sceneCanvasSize.y);
 
     const Matrix& view = cam->getViewMatrix();
     const Matrix& proj = cam->getProjectionMatrix();
@@ -621,11 +652,14 @@ void ModuleEditor::updateGizmoSelection(ModulePipeline* pipe)
 {
     if (!pipe) return;
 
-    ImGuiIO& io = ImGui::GetIO();
-
     // Esc and left click (without alt pressed) deactivates selection
     if (ImGui::IsKeyPressed(ImGuiKey_Escape))
         hasSelection = false;
+
+    if (!sceneHovered)
+        return;
+
+    ImGuiIO& io = ImGui::GetIO();
 
     if (!ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         return;
@@ -640,4 +674,55 @@ void ModuleEditor::updateGizmoSelection(ModulePipeline* pipe)
         return;
 
     hasSelection = false;
+}
+
+void ModuleEditor::drawSceneWindow(ModulePipeline* pipe, ModuleCameraEditor* cam)
+{
+    sceneFocused = false;
+    sceneHovered = false;
+    sceneDrawList = nullptr;
+
+    ImGui::SetNextWindowSize(ImVec2(1200, 800), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(20, 60), ImGuiCond_FirstUseEver);
+
+    if (!ImGui::Begin("Scene"))
+    {
+        ImGui::End();
+        return;
+    }
+
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    sceneCanvasSize = ImVec2((avail.x > 0) ? avail.x : 0, (avail.y > 0) ? avail.y : 0);
+    sceneCursorScreenPos = ImGui::GetCursorScreenPos();
+
+    ImGuiID id = ImGui::GetID("SceneViewport");
+    ImGui::BeginChildFrame(id, sceneCanvasSize,
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+
+    sceneFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    sceneHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+    sceneDrawList = ImGui::GetWindowDrawList();
+
+    if (pipe && sceneCanvasSize.x > 0.0f && sceneCanvasSize.y > 0.0f)
+        pipe->setSceneSize((int)sceneCanvasSize.x, (int)sceneCanvasSize.y);
+
+    bool imageHovered = false;
+
+    if (pipe && pipe->getSceneRT() && pipe->getSceneRT()->isValid())
+    {
+        auto srv = pipe->getSceneRT()->getSrvGpu();
+        ImGui::Image((ImTextureID)srv.ptr, sceneCanvasSize);
+
+        imageHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+    }
+    else
+    {
+        ImGui::TextDisabled("Scene not ready...");
+    }
+
+    if (cam)
+        cam->setSceneInput(imageHovered, sceneFocused);
+
+    ImGui::EndChildFrame();
+    ImGui::End();
 }

@@ -6,7 +6,7 @@
 #include "ReadData.h" 
 #include "ModuleCameraEditor.h"
 #include "ModuleSampler.h"
-#include "ModuleDescriptors.h"
+#include "ModuleShaderDescriptors.h"
 #include "ModuleRingBuffer.h"
 #include <SimpleMath.h>
 using namespace DirectX::SimpleMath;
@@ -21,7 +21,7 @@ bool ModulePipeline::init() {
     if (!createPSO())              return false;
 
     auto modD3D12 = app->getModule<ModuleD3D12>();
-    auto modDesc = app->getModule<ModuleDescriptors>();
+    auto modDesc = app->getModule<ModuleShaderDescriptors>();
     nullSrvIndex = modDesc->createNullTexture2DSRV();
     
     duckModel.loadModel("Assets/Models/Duck/Duck.gltf");
@@ -32,6 +32,8 @@ bool ModulePipeline::init() {
 
     initPBRPhongSettings();
 
+    sceneRT = std::make_unique<RenderTexture>(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D32_FLOAT, DirectX::XMFLOAT4(0.188f, 0.208f, 0.259f, 1.0f), 1.0f);
+
     auto device4 = reinterpret_cast<ID3D12Device4*>(modD3D12->getDevice());
     debugDraw = new DebugDrawPass(device4, modD3D12->getCommandQueue());
     return true;
@@ -40,34 +42,26 @@ bool ModulePipeline::init() {
 void ModulePipeline::preRender() {
     auto modD3D12 = app->getModule<ModuleD3D12>();
     ID3D12GraphicsCommandList* cmd = modD3D12->getCommandList();
+    
     auto modSampler = app->getModule<ModuleSampler>();
+    auto modDesc = app->getModule<ModuleShaderDescriptors>();
+    auto camera = app->getModule<ModuleCameraEditor>();
+    auto ring = app->getModule<ModuleRingBuffer>();
+
+    if (!sceneRT || !sceneRT->isValid())
+        return;
+
+    sceneRT->beginRender(cmd);
+
+    const uint32_t w = (uint32_t)sceneRT->getWidth();
+    const uint32_t h = (uint32_t)sceneRT->getHeight();
 
     Matrix model = duckModel.getModelMatrix();
-
-    auto camera = app->getModule<ModuleCameraEditor>();
 
     const Matrix& view = camera->getViewMatrix();
     const Matrix& proj = camera->getProjectionMatrix();
 
     Matrix mvp = (model * view * proj).Transpose();
-
-    RECT rc{}; 
-    GetClientRect(modD3D12->getWindowHandle(), &rc);
-    float w = float(rc.right - rc.left);
-    float h = float(rc.bottom - rc.top);
-
-    //TopLeftX - TopLeftY - ViewportWidth - ViewportHeight - MinDepth - MaxDepth
-    D3D12_VIEWPORT viewport{ 0.0, 0.0, float(w), float(h) , 0.0, 1.0 };
-
-    D3D12_RECT sc{ 0, 0, (LONG)w, (LONG)h };
-    cmd->RSSetViewports(1, &viewport);
-    cmd->RSSetScissorRects(1, &sc);
-
-    auto rtv = modD3D12->getCurrentRTV();
-    auto dsv = modD3D12->getDSV();
-    cmd->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-
-    auto modDesc = app->getModule<ModuleDescriptors>();
 
     ID3D12DescriptorHeap* heaps[] = { modDesc->getHeap(), modSampler->getHeap() };
     cmd->SetDescriptorHeaps(2, heaps);
@@ -78,8 +72,6 @@ void ModulePipeline::preRender() {
 
     // b0
     cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &mvp, 0);
-
-    auto ring = app->getModule<ModuleRingBuffer>();
 
     PerFrame perFrame{};
     perFrame.L = phong.lightDir;
@@ -162,6 +154,8 @@ void ModulePipeline::preRender() {
     if (showAxis) dd::axisTriad(ddConvert(Matrix::Identity), 0.1f, 1.0f);
 
     debugDraw->record(cmd, (uint32_t)w, (uint32_t)h, view, proj);
+
+    sceneRT->endRender(cmd);
 }
 
 struct Vertex {
@@ -263,4 +257,22 @@ void ModulePipeline::setSamplerIndex(int idx)
     if (idx < 0) idx = 0;
     if (idx > 3) idx = 3; 
     phong.samplerIndex = idx;
+}
+
+void ModulePipeline::setSceneSize(int w, int h)
+{
+    w = (w < 1) ? 1 : w;
+    h = (h < 1) ? 1 : h;
+
+    if (!sceneRT) return;
+
+    if (sceneRT->isValid() &&
+        w == sceneRT->getWidth() &&
+        h == sceneRT->getHeight())
+        return;
+
+    sceneRT->resize(w, h);
+
+    if (auto cam = app->getModule<ModuleCameraEditor>())
+        cam->requestResize((uint32_t)w, (uint32_t)h);
 }

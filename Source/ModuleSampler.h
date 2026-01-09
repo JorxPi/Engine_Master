@@ -8,7 +8,6 @@ public:
     bool init() override;
     bool cleanUp() override;
 
-    ID3D12DescriptorHeap* getSamplerHeap() const { return samplerHeap.Get(); }
     D3D12_CPU_DESCRIPTOR_HANDLE getCpuHandle(UINT index) const;
     D3D12_GPU_DESCRIPTOR_HANDLE getGpuHandle(UINT index) const;
 
