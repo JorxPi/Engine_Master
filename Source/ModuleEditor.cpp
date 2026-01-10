@@ -703,12 +703,22 @@ void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
 
 void ModuleEditor::updateGizmoHotkeys()
 {
+    if (!(sceneHovered || sceneFocused))
+        return;
+
     const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
     if (rmbDown) return;
 
     ImGuiIO& io = ImGui::GetIO();
-    if (io.WantCaptureKeyboard || io.WantTextInput) return;
-    if (ImGuizmo::IsUsing()) return;
+
+    if (io.WantTextInput)
+        return;
+
+    if (ImGui::IsAnyItemActive())
+        return;
+
+    if (ImGuizmo::IsUsing())
+        return;
 
     if (ImGui::IsKeyPressed(ImGuiKey_W)) { gizmoOp = ImGuizmo::TRANSLATE; hasSelection = true; }
     if (ImGui::IsKeyPressed(ImGuiKey_E)) { gizmoOp = ImGuizmo::ROTATE;    hasSelection = true; }

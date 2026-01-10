@@ -134,27 +134,26 @@ bool RenderTexture::createResources(int w, int h)
     rtvIdx = rtvDesc->createRTV(color.Get(), nullptr);
     srvIdx = shaderDesc->createTexture2DSRV(color.Get());
     if (rtvIdx == INVALID_DESC || srvIdx == INVALID_DESC) { destroy(); return false; }
+  
+    ID3D12GraphicsCommandList* cmd = d3d12->getCommandList();
+    auto* alloc = d3d12->getCommandAllocator();
+    auto* queue = d3d12->getCommandQueue();
 
-    {
-        ID3D12GraphicsCommandList* cmd = d3d12->getCommandList();
-        auto* alloc = d3d12->getCommandAllocator();
-        auto* queue = d3d12->getCommandQueue();
+    alloc->Reset();
+    cmd->Reset(alloc, nullptr);
 
-        alloc->Reset();
-        cmd->Reset(alloc, nullptr);
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+        color.Get(),
+        D3D12_RESOURCE_STATE_COMMON,
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+    );
+    cmd->ResourceBarrier(1, &barrier);
 
-        auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-            color.Get(),
-            D3D12_RESOURCE_STATE_COMMON,
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-        );
-        cmd->ResourceBarrier(1, &barrier);
-
-        cmd->Close();
-        ID3D12CommandList* lists[] = { cmd };
-        queue->ExecuteCommandLists(1, lists);
-        d3d12->flush();
-    }
+    cmd->Close();
+    ID3D12CommandList* lists[] = { cmd };
+    queue->ExecuteCommandLists(1, lists);
+    d3d12->flush();
+    
 
     // --- Depth resource ---
     depth = res->createDepthStencil(depthFmt, (UINT)width, (UINT)height, clearDepth, 0);

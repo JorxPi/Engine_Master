@@ -20,7 +20,7 @@ public:
 
     uint32_t alloc()
     {
-        assert(head != UINT32_MAX && "Out of handles in FreeListAllocator!");
+        assert(head != UINT32_MAX && "Out of handles in FreeListAllocator");
         const uint32_t idx = head;
         head = next[idx];
         return idx;
