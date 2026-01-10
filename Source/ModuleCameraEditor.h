@@ -5,11 +5,9 @@
 
 constexpr float THRESHOLD = 1e-8f;
 
-using namespace DirectX::SimpleMath;
-
 struct Camera
 {
-	DirectX::SimpleMath::Vector3 position = { 0.0f, 10.0f, 10.0f };
+	Vector3 position = { 0.0f, 10.0f, 10.0f };
 	Quaternion orientation = Quaternion::Identity;
 
 	float aspect = 16.0f / 9.0f;
@@ -26,11 +24,6 @@ class ModuleCameraEditor : public Module
 public:
 	ModuleCameraEditor();
 	void update() override;
-	void updateWASD(float dt);
-	void applyMouseLook(float dx, float dy);
-	void altRightClickZoom(float dy);
-	void mouseWheelZoom(float wheel);
-	void orbitDrag(float dx, float dy);
 	void focusOnGeometry(const Vector3& pivot);
 
 	void requestResize(uint32_t w, uint32_t h);
@@ -53,17 +46,23 @@ public:
 
 
 private:
-	float calculateVerticalFovFromHorizontal(float fovX, float aspect);
+	void updateWASD(float dt);
+	void applyMouseLook(float dx, float dy);
+	void altRightClickZoom(float dy);
+	void mouseWheelZoom(float wheel);
+	void orbitDrag(float dx, float dy);
+
 	void buildViewMatrix();
 	void buildProjectionMatrix();
+	void setOrientationFromForwardNoRoll(const Vector3& forward);
 	
 	Camera camera;
 
 	bool viewDirty = true;
 	bool projDirty = true;
 
-	DirectX::SimpleMath::Matrix view;
-	DirectX::SimpleMath::Matrix proj;
+	Matrix view;
+	Matrix proj;
 
 	// -- Editor --
 	enum class RMBMode { None, Rotate, Zoom };

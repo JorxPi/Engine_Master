@@ -9,7 +9,6 @@
 #include "ModuleShaderDescriptors.h"
 #include "ModuleRingBuffer.h"
 #include <SimpleMath.h>
-using namespace DirectX::SimpleMath;
 
 ModulePipeline::ModulePipeline() {
 

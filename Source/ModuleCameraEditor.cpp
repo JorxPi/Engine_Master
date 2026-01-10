@@ -13,6 +13,18 @@ ModuleCameraEditor::ModuleCameraEditor() {
 
 }
 
+// Helper
+
+static Vector3 safeNormalize(const Vector3& v)
+{
+    float ls = v.LengthSquared();
+    if (ls < THRESHOLD) return Vector3::Zero;
+    Vector3 out = v / sqrtf(ls);
+    return out;
+}
+
+//
+
 void ModuleCameraEditor::update()
 {
     auto& io = ImGui::GetIO();
@@ -70,7 +82,7 @@ void ModuleCameraEditor::update()
             dir.Normalize();
 
             orbitPitch = asinf(dir.y);
-            orbitYaw = atan2f(dir.x, dir.z);
+            orbitYaw = atan2f(-dir.x, -dir.z);
             return;
         }
 
@@ -131,7 +143,8 @@ void ModuleCameraEditor::updateWASD(float dt) {
     if (GetAsyncKeyState('E') & 0x8000) move += up;
     if (GetAsyncKeyState('Q') & 0x8000) move -= up;
 
-    if (move.LengthSquared() > THRESHOLD) {
+    move = safeNormalize(move);
+    if (move != Vector3::Zero) {
         move.Normalize();
         camera.position += move * speed * dt;
         viewDirty = true;
@@ -140,54 +153,21 @@ void ModuleCameraEditor::updateWASD(float dt) {
     }
 }
 
-void ModuleCameraEditor::applyMouseLook(float dx, float dy) {
+void ModuleCameraEditor::applyMouseLook(float dx, float dy)
+{
     float deltaYaw = -dx * lookSensitivity;
     float deltaPitch = -dy * lookSensitivity;
 
-    Vector3 forward = Vector3::Transform(Vector3::Forward, camera.orientation);
-    Vector3 up = Vector3::Transform(Vector3::Up, camera.orientation);
+    yaw += deltaYaw;
+    pitch += deltaPitch;
+    pitch = std::clamp(pitch, -pitchLimit, pitchLimit);
 
-    forward.Normalize();
-    up.Normalize();
-
-    Quaternion qYaw = Quaternion::CreateFromAxisAngle(Vector3::Up, deltaYaw);
-    forward = Vector3::Transform(forward, qYaw);
-    up = Vector3::Transform(up, qYaw);
-
-    Vector3 right = forward.Cross(up);
-    if (right.LengthSquared() < THRESHOLD) {
-        right = Vector3::Right;
-    }
-    right.Normalize();
-    up = right.Cross(forward);
-    up.Normalize();
-
-    Quaternion qPitch = Quaternion::CreateFromAxisAngle(right, deltaPitch);
-
-    Vector3 newForward = Vector3::Transform(forward, qPitch);
-    Vector3 newUp = Vector3::Transform(up, qPitch);
-
-    newForward.Normalize();
-    newUp.Normalize();
-
-    float maxY = sinf(pitchLimit);
-    forward = newForward;
-    up = newUp;
-
-    right = forward.Cross(up);
-    if (right.LengthSquared() < THRESHOLD) {
-        right = Vector3::Right;
-    }
-    right.Normalize();
-    up = right.Cross(forward);
-    up.Normalize();
-
-    Matrix worldM = Matrix::CreateWorld(Vector3::Zero, forward, up);
-    camera.orientation = Quaternion::CreateFromRotationMatrix(worldM);
+    camera.orientation = Quaternion::CreateFromYawPitchRoll(yaw, pitch, 0.0f);
     camera.orientation.Normalize();
 
     viewDirty = true;
 }
+
 
 void ModuleCameraEditor::altRightClickZoom(float dy)
 {
@@ -219,24 +199,19 @@ void ModuleCameraEditor::orbitDrag(float dx, float dy)
 {
     orbitYaw += -dx * lookSensitivity;
     orbitPitch += -dy * lookSensitivity;
-
     orbitPitch = std::clamp(orbitPitch, -pitchLimit, pitchLimit);
 
     Vector3 forward;
-    forward.x = sinf(orbitYaw) * cosf(orbitPitch);
+    forward.x = -sinf(orbitYaw) * cosf(orbitPitch);
     forward.y = sinf(orbitPitch);
-    forward.z = cosf(orbitYaw) * cosf(orbitPitch);
-    forward.Normalize();
+    forward.z = -cosf(orbitYaw) * cosf(orbitPitch);
+    forward = safeNormalize(forward);
 
     camera.position = pivot - forward * orbitDistance;
 
-    Matrix viewM = Matrix::CreateLookAt(camera.position, pivot, Vector3::Up);
-    Matrix invView = viewM.Invert();
-    camera.orientation = Quaternion::CreateFromRotationMatrix(invView);
-    camera.orientation.Normalize();
-
-    viewDirty = true;
+    setOrientationFromForwardNoRoll(forward);
 }
+
 
 
 void ModuleCameraEditor::focusOnGeometry(const Vector3& pivotW)
@@ -250,7 +225,10 @@ void ModuleCameraEditor::focusOnGeometry(const Vector3& pivotW)
     if (dist < 0.001f)
     {
         Vector3 forward = Vector3::Transform(Vector3::Forward, camera.orientation);
-        forward.Normalize();
+        forward = safeNormalize(forward);
+        if (forward == Vector3::Zero)
+            forward = Vector3::Forward;
+
         camToPivot = forward;
         dist = 10.0f;
     }
@@ -263,18 +241,17 @@ void ModuleCameraEditor::focusOnGeometry(const Vector3& pivotW)
 
     camera.position = pivot - camToPivot * orbitDistance;
 
-    Matrix viewM = Matrix::CreateLookAt(camera.position, pivot, Vector3::Up);
-    Matrix invView = viewM.Invert();
-    camera.orientation = Quaternion::CreateFromRotationMatrix(invView);
-    camera.orientation.Normalize();
+    Vector3 forward = pivot - camera.position;
+    setOrientationFromForwardNoRoll(forward);
+
+    Vector3 dir = safeNormalize(pivot - camera.position);
+    orbitPitch = asinf(dir.y);
+    orbitPitch = std::clamp(orbitPitch, -pitchLimit, pitchLimit);
+    orbitYaw = atan2f(-dir.x, -dir.z);
 
     wasRmbDown = false;
     wasOrbitDown = false;
-
-    viewDirty = true;
 }
-
-
 
 void ModuleCameraEditor::requestResize(uint32_t w, uint32_t h) {
     if (h == 0) h = 1;
@@ -320,12 +297,12 @@ void ModuleCameraEditor::setOrientation(const Quaternion& q)
 
 void ModuleCameraEditor::setLookAt(const Vector3& target, const Vector3& worldUp)
 {
-    Vector3 direction = target - camera.position;
-    if (direction.LengthSquared() < THRESHOLD) return;
+    Vector3 direction = safeNormalize(target - camera.position);
+    if (direction == Vector3::Zero) return;
 
     direction.Normalize();
 
-    yaw = atan2f(direction.x, -direction.z);
+    yaw = atan2f(-direction.x, -direction.z);
     pitch = asinf(direction.y);
     pitch = std::clamp(pitch, -pitchLimit, pitchLimit);
 
@@ -356,12 +333,6 @@ const Matrix& ModuleCameraEditor::getProjectionMatrix()
     return proj;
 }
 
-float ModuleCameraEditor::calculateVerticalFovFromHorizontal(float fovX, float aspect)
-{
-    aspect = std::max(aspect, 0.0001f);
-    return 2.0f * atanf(tanf(fovX * 0.5f) / aspect);
-}
-
 void ModuleCameraEditor::buildViewMatrix() {
     Vector3 forward = Vector3::Transform(Vector3::Forward, camera.orientation);
     Vector3 up = Vector3::Transform(Vector3::Up, camera.orientation);
@@ -374,3 +345,19 @@ void ModuleCameraEditor::buildProjectionMatrix() {
     proj = Matrix::CreatePerspectiveFieldOfView(camera.fovY, camera.aspect, camera.nearPlane, camera.farPlane);
     projDirty = false;
 }
+
+void ModuleCameraEditor::setOrientationFromForwardNoRoll(const Vector3& forward)
+{
+    Vector3 f = safeNormalize(forward);
+    if (f == Vector3::Zero) return;
+
+    yaw = atan2f(-f.x, -f.z);
+    pitch = asinf(f.y);
+    pitch = std::clamp(pitch, -pitchLimit, pitchLimit);
+
+    camera.orientation = Quaternion::CreateFromYawPitchRoll(yaw, pitch, 0.0f);
+    camera.orientation.Normalize();
+    viewDirty = true;
+}
+
+

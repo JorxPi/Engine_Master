@@ -11,8 +11,8 @@ public:
 
 	void loadModel(const char* assetFileName);
 
-	void setModelMatrix(const DirectX::SimpleMath::Matrix& m) { modelMatrix = m; }
-	const DirectX::SimpleMath::Matrix& getModelMatrix() const { return modelMatrix; }
+	void setModelMatrix(const Matrix& m) { modelMatrix = m; }
+	const Matrix& getModelMatrix() const { return modelMatrix; }
 
 	const std::vector<Material>& getMaterials() const { return materials; }
 	const std::vector<Mesh>& getMeshes() const { return meshes; }
@@ -27,6 +27,6 @@ private:
 	std::vector<Material> materials;
 	std::vector<Mesh> meshes;
 
-	DirectX::SimpleMath::Matrix modelMatrix = DirectX::SimpleMath::Matrix::Identity;
+	Matrix modelMatrix = Matrix::Identity;
 
 };

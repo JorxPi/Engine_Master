@@ -23,7 +23,7 @@ static std::string joinPath(const char* basePath, const std::string& uri) {
 }
 
 void Material::load(const tinygltf::Model& model, const tinygltf::PbrMetallicRoughness& material, const char* basePath) {
-    colour = DirectX::SimpleMath::Vector4(
+    colour = Vector4(
         float(material.baseColorFactor[0]),
         float(material.baseColorFactor[1]),
         float(material.baseColorFactor[2]),
