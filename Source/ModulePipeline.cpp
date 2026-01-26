@@ -31,6 +31,8 @@ bool ModulePipeline::init() {
 
     initPBRPhongSettings();
 
+    createProvisionalLights();
+
     sceneRT = std::make_unique<RenderTexture>(DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_D32_FLOAT, DirectX::XMFLOAT4(0.188f, 0.208f, 0.259f, 1.0f), 1.0f);
 
     auto device4 = reinterpret_cast<ID3D12Device4*>(modD3D12->getDevice());
@@ -73,20 +75,24 @@ void ModulePipeline::preRender() {
     cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &mvp, 0);
 
     PerFrame perFrame{};
-    perFrame.L = phong.lightDir;
-    perFrame.L.Normalize();
-    perFrame.Lc = phong.lightColor * phong.lightIntensity;
-    perFrame.Ac = phong.ambient * phong.ambientIntensity;
     perFrame.viewPos = camera->readCamera().position;
 
-    auto pfAlloc = ring->allocBuffer((uint32_t)sizeof(PerFrame));
-    memcpy(pfAlloc.cpu, &perFrame, sizeof(PerFrame));
+    auto perFrameAllocation = ring->allocBuffer((uint32_t)sizeof(PerFrame));
+    memcpy(perFrameAllocation.cpu, &perFrame, sizeof(PerFrame));
 
     // b1
-    cmd->SetGraphicsRootConstantBufferView(1, pfAlloc.gpu); 
+    cmd->SetGraphicsRootConstantBufferView(1, perFrameAllocation.gpu);
+
+    // b3
+    GPULightsConstantBuffer gpuLights = lightSystem.packForGPUConstantBuffer();
+
+    auto lightsAllocation = ring->allocBuffer((uint32_t)sizeof(GPULightsConstantBuffer));
+    memcpy(lightsAllocation.cpu, &gpuLights, sizeof(GPULightsConstantBuffer));
+
+    cmd->SetGraphicsRootConstantBufferView(3, lightsAllocation.gpu);
 
     // s0
-    cmd->SetGraphicsRootDescriptorTable(4, modSampler->getGpuHandle((UINT)phong.samplerIndex));
+    cmd->SetGraphicsRootDescriptorTable(5, modSampler->getGpuHandle((UINT)phong.samplerIndex));
 
     const auto& meshes = duckModel.getMeshes();
     const auto& mats = duckModel.getMaterials();
@@ -141,7 +147,7 @@ void ModulePipeline::preRender() {
         // b2
         cmd->SetGraphicsRootConstantBufferView(2, piAlloc.gpu);
         // t0
-        cmd->SetGraphicsRootDescriptorTable(3, modDesc->getGpuHandle(srvIndex));
+        cmd->SetGraphicsRootDescriptorTable(4, modDesc->getGpuHandle(srvIndex));
 
         if (mesh.hasIndices()) cmd->DrawIndexedInstanced(mesh.getNumIndices(), 1, 0, 0, 0);
         else cmd->DrawInstanced(mesh.getNumVertices(), 1, 0, 0);
@@ -166,7 +172,7 @@ bool ModulePipeline::createRootSignature() {
     auto modD3D12 = app->getModule<ModuleD3D12>();
 
     CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-    CD3DX12_ROOT_PARAMETER rootParams[5];
+    CD3DX12_ROOT_PARAMETER rootParams[6];
     
     CD3DX12_DESCRIPTOR_RANGE tableRange;
     tableRange.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0); 
@@ -177,10 +183,11 @@ bool ModulePipeline::createRootSignature() {
     rootParams[0].InitAsConstants(sizeof(Matrix) / sizeof(UINT32), 0, 0, D3D12_SHADER_VISIBILITY_VERTEX); // b0
     rootParams[1].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL); // b1 
     rootParams[2].InitAsConstantBufferView(2, 0, D3D12_SHADER_VISIBILITY_ALL); // b2 
-    rootParams[3].InitAsDescriptorTable(1, &tableRange, D3D12_SHADER_VISIBILITY_PIXEL); // t0
-    rootParams[4].InitAsDescriptorTable(1, &samplerRange, D3D12_SHADER_VISIBILITY_PIXEL); // s0
+    rootParams[3].InitAsConstantBufferView(3, 0, D3D12_SHADER_VISIBILITY_PIXEL); // b3 (LightsCB)
+    rootParams[4].InitAsDescriptorTable(1, &tableRange, D3D12_SHADER_VISIBILITY_PIXEL); // t0
+    rootParams[5].InitAsDescriptorTable(1, &samplerRange, D3D12_SHADER_VISIBILITY_PIXEL); // s0
 
-    rootSignatureDesc.Init(5, rootParams, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+    rootSignatureDesc.Init(6, rootParams, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     ComPtr<ID3DBlob> blob;
     if (FAILED(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, nullptr)))
@@ -274,4 +281,40 @@ void ModulePipeline::setSceneSize(int w, int h)
 
     if (auto cam = app->getModule<ModuleCameraEditor>())
         cam->requestResize((uint32_t)w, (uint32_t)h);
+}
+
+void ModulePipeline::createProvisionalLights() {
+    // Directional light
+    directionalOwner = lightSystem.createOwner({ Vector3::Zero, Vector3(-0.5f, -0.5f, -0.5f) });
+    LightCommon dirCommon{};
+    dirCommon.enabled = true;
+    dirCommon.color = Vector3(1, 1, 1);
+    dirCommon.intensity = 3.0f;
+    directionalLight = lightSystem.createDirectionalLight(directionalOwner, dirCommon, {});
+
+    // Point light
+    pointOwner = lightSystem.createOwner({ Vector3(0, 2, 0), Vector3::Forward });
+    LightCommon pointCommon{};
+    pointCommon.enabled = true;
+    pointCommon.color = Vector3(1, 0.9f, 0.7f);
+    pointCommon.intensity = 20.0f;
+    PointLightParameters pointParameters{};
+    pointParameters.radius = 8.0f;
+    pointLight = lightSystem.createPointLight(pointOwner, pointCommon, pointParameters);
+
+    // Spot light
+    spotOwner = lightSystem.createOwner({ Vector3(0, 4, 4), Vector3(0, -0.7f, -1.0f) });
+    LightCommon spotCommon{};
+    spotCommon.enabled = true;
+    spotCommon.color = Vector3(0.7f, 0.8f, 1.0f);
+    spotCommon.intensity = 35.0f;
+    SpotLightParameters spotParameters{};
+    spotParameters.radius = 12.0f;
+    spotParameters.innerAngleDegrees = 15.0f;
+    spotParameters.outerAngleDegrees = 25.0f;
+    spotLight = lightSystem.createSpotLight(spotOwner, spotCommon, spotParameters);
+
+    // Ambient
+    lightSystem.setAmbient(Vector3(0.1f, 0.1f, 0.1f), 1.0f);
+
 }

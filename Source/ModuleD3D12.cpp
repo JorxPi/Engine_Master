@@ -12,9 +12,16 @@ bool ModuleD3D12::init() {
 
 #if defined(_DEBUG)
     ComPtr<ID3D12Debug> debugInterface;
-    D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface));
-    debugInterface->EnableDebugLayer();
-    LOG("Debug layer enabled");
+    HRESULT hr = D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface));
+    if (SUCCEEDED(hr) && debugInterface)
+    {
+        debugInterface->EnableDebugLayer();
+        LOG("D3D12 debug layer enabled");
+    }
+    else
+    {
+        LOG("WARNING: D3D12GetDebugInterface failed (hr=0x%08X). Debug layer not available.", (unsigned)hr);
+    }
 #endif
 
 #if defined(_DEBUG)

@@ -69,6 +69,9 @@
     <ClCompile Include="RenderTexture.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="LightSystem.cpp">
+      <Filter>Lights</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="3rdParty\imgui-1.89.8\backends\imgui_impl_win32.h" />
@@ -156,6 +159,12 @@
     <ClInclude Include="RenderTexture.h">
       <Filter>Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="Lights.h">
+      <Filter>Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="LightSystem.h">
+      <Filter>Lights</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Engine.rc" />
@@ -170,6 +179,7 @@
     <None Include="Phong.hlsli">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="EditorClasses">
@@ -192,6 +202,9 @@
     </Filter>
     <Filter Include="Rendering">
       <UniqueIdentifier>{c558bbf8-e642-4fb1-a8d9-2dc8ed17526d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Lights">
+      <UniqueIdentifier>{bab1149e-7b39-4827-b48f-87245d4cfd5b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

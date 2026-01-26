@@ -76,8 +76,10 @@ void ModuleEditor::preRender() {
         {
             ImGui::MenuItem("Geometry Viewer", nullptr, &showGeometryViewer);
             ImGui::MenuItem("Phong Controls", nullptr, &showPhongControls);
+            ImGui::MenuItem("Lights", nullptr, &showLightsWindow);
             ImGui::EndMenu();
         }
+
 
         ImGui::EndMainMenuBar();
 
@@ -98,6 +100,7 @@ void ModuleEditor::preRender() {
 
     drawGeometryViewerWindow(pipe, cam);
     drawPhongControlsWindow(pipe, cam);
+    drawLightsWindow(pipe);
 
     //ImGizmo
     drawGizmo(pipe, cam);
@@ -684,6 +687,141 @@ void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEdi
 
     ImGui::End();
 }
+
+void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
+{
+    if (!showLightsWindow) return;
+    if (!ImGui::Begin("Lights", &showLightsWindow)) { ImGui::End(); return; }
+    if (!pipe) { ImGui::TextDisabled("No pipeline"); ImGui::End(); return; }
+
+    LightSystem& lightSystem = pipe->editLightSystem();
+
+    // ----- Ambient -----
+    {
+        Vector3 ambientColor = lightSystem.getAmbientColor();
+        float ambientIntensity = lightSystem.getAmbientIntensity();
+
+        float col[3] = { ambientColor.x, ambientColor.y, ambientColor.z };
+        if (ImGui::ColorEdit3("Ambient Color", col))
+            ambientColor = Vector3(col[0], col[1], col[2]);
+
+        if (ImGui::DragFloat("Ambient Intensity", &ambientIntensity, 0.05f, 0.0f, 10.0f)); 
+
+        lightSystem.setAmbient(ambientColor, ambientIntensity);
+    }
+
+    ImGui::Separator();
+
+    auto editVector3 = [](const char* label, Vector3& v, float speed)
+        {
+            return ImGui::DragFloat3(label, &v.x, speed);
+        };
+
+    // ----- Directional -----
+    {
+        ImGui::Text("Directional");
+        OwnerId ownerId = pipe->getDirectionalOwner();
+        LightId lightId = pipe->getDirectionalLight();
+
+        ManualTransform transform{};
+        if (lightSystem.getOwnerTransform(ownerId, transform))
+        {
+            editVector3("Direction (forward)", transform.forward, 0.01f);
+            if (ImGui::SmallButton("Normalize Direction"))
+                transform.forward.Normalize();
+
+            lightSystem.setOwnerTransform(ownerId, transform);
+        }
+
+        if (LightInstance* instance = lightSystem.getLight(lightId))
+        {
+            ImGui::Checkbox("Enabled##Dir", &instance->lightComponent.common.enabled);
+
+            float col[3] = {
+                instance->lightComponent.common.color.x,
+                instance->lightComponent.common.color.y,
+                instance->lightComponent.common.color.z
+            };
+            if (ImGui::ColorEdit3("Color##Dir", col))
+                instance->lightComponent.common.color = Vector3(col[0], col[1], col[2]);
+
+            ImGui::DragFloat("Intensity##Dir", &instance->lightComponent.common.intensity, 0.1f, 0.0f, 200.0f);
+        }
+    }
+
+    ImGui::Separator();
+
+    // ----- Point -----
+    {
+        ImGui::Text("Point");
+        OwnerId ownerId = pipe->getPointOwner();
+        LightId lightId = pipe->getPointLight();
+
+        ManualTransform transform{};
+        if (lightSystem.getOwnerTransform(ownerId, transform))
+        {
+            editVector3("Position##Point", transform.position, 0.05f);
+            lightSystem.setOwnerPosition(ownerId, transform.position);
+        }
+
+        if (LightInstance* instance = lightSystem.getLight(lightId))
+        {
+            auto& common = instance->lightComponent.common;
+            ImGui::Checkbox("Enabled##Point", &common.enabled);
+
+            float col[3] = { common.color.x, common.color.y, common.color.z };
+            if (ImGui::ColorEdit3("Color##Point", col))
+                common.color = Vector3(col[0], col[1], col[2]);
+
+            ImGui::DragFloat("Intensity##Point", &common.intensity, 0.1f, 0.0f, 500.0f);
+
+            if (auto* params = std::get_if<PointLightParameters>(&instance->lightComponent.parameters))
+                ImGui::DragFloat("Radius##Point", &params->radius, 0.1f, 0.0f, 200.0f);
+        }
+    }
+
+    ImGui::Separator();
+
+    // ----- Spot -----
+    {
+        ImGui::Text("Spot");
+        OwnerId ownerId = pipe->getSpotOwner();
+        LightId lightId = pipe->getSpotLight();
+
+        ManualTransform transform{};
+        if (lightSystem.getOwnerTransform(ownerId, transform))
+        {
+            editVector3("Position##Spot", transform.position, 0.05f);
+            editVector3("Direction##Spot", transform.forward, 0.01f);
+            if (ImGui::SmallButton("Normalize Spot Direction"))
+                transform.forward.Normalize();
+
+            lightSystem.setOwnerTransform(ownerId, transform);
+        }
+
+        if (LightInstance* instance = lightSystem.getLight(lightId))
+        {
+            auto& common = instance->lightComponent.common;
+            ImGui::Checkbox("Enabled##Spot", &common.enabled);
+
+            float col[3] = { common.color.x, common.color.y, common.color.z };
+            if (ImGui::ColorEdit3("Color##Spot", col))
+                common.color = Vector3(col[0], col[1], col[2]);
+
+            ImGui::DragFloat("Intensity##Spot", &common.intensity, 0.1f, 0.0f, 500.0f);
+
+            if (auto* params = std::get_if<SpotLightParameters>(&instance->lightComponent.parameters))
+            {
+                ImGui::DragFloat("Radius##Spot", &params->radius, 0.1f, 0.0f, 200.0f);
+                ImGui::DragFloat("Inner Angle##Spot", &params->innerAngleDegrees, 0.1f, 0.0f, 179.0f);
+                ImGui::DragFloat("Outer Angle##Spot", &params->outerAngleDegrees, 0.1f, 0.0f, 179.0f);
+            }
+        }
+    }
+
+    ImGui::End();
+}
+
 
 void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
     ImGuiIO& io = ImGui::GetIO();

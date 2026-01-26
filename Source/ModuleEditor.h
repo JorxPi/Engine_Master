@@ -41,6 +41,7 @@ public:
 	//Model
 	void drawGeometryViewerWindow(ModulePipeline* pipe, ModuleCameraEditor* cam);
 	void drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEditor* cam);
+	void drawLightsWindow(ModulePipeline* pipe);
 
 	void focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam);
 
@@ -70,6 +71,7 @@ private:
 	bool showTextureGrid = false;
 	bool showGeometryViewer = true;
 	bool showPhongControls = true;
+	bool showLightsWindow = true;
 
 	//ImGuizmo
 	ImGuizmo::OPERATION gizmoOp = ImGuizmo::TRANSLATE;

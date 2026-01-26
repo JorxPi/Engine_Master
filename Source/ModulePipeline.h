@@ -4,6 +4,7 @@
 #include "Model.h"
 #include "PhongData.h"
 #include "RenderTexture.h"
+#include "LightSystem.h"
 
 class ModulePipeline : public Module
 {
@@ -35,9 +36,22 @@ public:
 
     RenderTexture* getSceneRT() const { return sceneRT.get(); }
 
+    //Lights
+
+    LightSystem& editLightSystem() { return lightSystem; }
+
+    OwnerId getDirectionalOwner() const { return directionalOwner; }
+    OwnerId getPointOwner() const { return pointOwner; }
+    OwnerId getSpotOwner() const { return spotOwner; }
+
+    LightId getDirectionalLight() const { return directionalLight; }
+    LightId getPointLight() const { return pointLight; }
+    LightId getSpotLight() const { return spotLight; }
+
 private:
     bool createRootSignature();
     bool createPSO();
+    void createProvisionalLights();
 
     Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
     Microsoft::WRL::ComPtr<ID3D12PipelineState> pso;
@@ -57,5 +71,16 @@ private:
 
     bool showGrid = true;
     bool showAxis = true;
+
+    //Light
+
+    LightSystem lightSystem;
+    OwnerId directionalOwner = 0;
+    OwnerId pointOwner = 0;
+    OwnerId spotOwner = 0;
+
+    LightId directionalLight = 0;
+    LightId pointLight = 0;
+    LightId spotLight = 0;
 
 };

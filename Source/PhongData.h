@@ -26,12 +26,17 @@ struct PerInstance
     PBRPhongMaterialData material;
 };
 
-struct PerFrame
+/*struct PerFrame
 {
     Vector3 L = Vector3::UnitX; float pad0 = 0.0f;
     Vector3 Lc = Vector3::One;  float pad1 = 0.0f;
     Vector3 Ac = Vector3::Zero; float pad2 = 0.0f;
     Vector3 viewPos = Vector3::Zero; float pad3 = 0.0f;
+};*/
+
+struct PerFrame
+{
+    Vector3 viewPos = Vector3::Zero; float pad0 = 0.0f;
 };
 
 struct PhongSettings
