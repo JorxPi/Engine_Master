@@ -2,7 +2,6 @@
 #include "LightSystem.h"
 #include <cmath>
 #include <algorithm>
-#include <type_traits>
 
 static constexpr float kPi = 3.14159265358979323846f;
 static constexpr float kNormalizeEpsilon = 1e-8f;
@@ -112,13 +111,29 @@ LightId LightSystem::createLight(OwnerId ownerId, const LightComponent& lightCom
     if (owners.find(ownerId) == owners.end())
         return 0;
 
-    LightComponent sanitizedLightComponent = lightComponent;
+    LightComponent sanitized = lightComponent;
 
-    if (auto* spotLightParameters = std::get_if<SpotLightParameters>(&sanitizedLightComponent.parameters))
-        sanitizeSpotAngles(spotLightParameters->innerAngleDegrees, spotLightParameters->outerAngleDegrees);
+    sanitized.common.intensity = std::max(0.0f, sanitized.common.intensity);
+
+    switch (sanitized.type)
+    {
+    case LightType::Point:
+        sanitized.parameters.point.radius = std::max(0.0f, sanitized.parameters.point.radius);
+        break;
+
+    case LightType::Spot:
+        sanitized.parameters.spot.radius = std::max(0.0f, sanitized.parameters.spot.radius);
+        sanitizeSpotAngles(sanitized.parameters.spot.innerAngleDegrees,
+            sanitized.parameters.spot.outerAngleDegrees);
+        break;
+
+    case LightType::Directional:
+    default:
+        break;
+    }
 
     const LightId newLightId = nextLightId++;
-    lights.emplace(newLightId, LightInstance{ ownerId, sanitizedLightComponent });
+    lights.emplace(newLightId, LightInstance{ ownerId, sanitized });
     return newLightId;
 }
 
@@ -139,37 +154,31 @@ const LightInstance* LightSystem::getLight(LightId lightId) const
     return (lightIterator == lights.end()) ? nullptr : &lightIterator->second;
 }
 
-LightId LightSystem::createDirectionalLight(OwnerId ownerId, const LightCommon& common, const DirectionalLightParameters& parameters)
+LightId LightSystem::createDirectionalLight(OwnerId ownerId, const LightCommon& common)
 {
-    LightComponent lightComponent{};
-    lightComponent.common = common;
-    lightComponent.parameters = parameters;
-    return createLight(ownerId, lightComponent);
+    LightComponent c{};
+    c.common = common;
+    c.type = LightType::Directional;
+    c.parameters = LightParameters::MakeDirectional();
+    return createLight(ownerId, c);
 }
 
-LightId LightSystem::createPointLight(OwnerId ownerId, const LightCommon& common, const PointLightParameters& parameters)
+LightId LightSystem::createPointLight(OwnerId ownerId, const LightCommon& common, const PointLightParameters& params)
 {
-    LightComponent lightComponent{};
-    lightComponent.common = common;
-
-    PointLightParameters sanitizedParameters = parameters;
-    sanitizedParameters.radius = std::max(0.0f, sanitizedParameters.radius);
-
-    lightComponent.parameters = sanitizedParameters;
-    return createLight(ownerId, lightComponent);
+    LightComponent c{};
+    c.common = common;
+    c.type = LightType::Point;
+    c.parameters.point = params;
+    return createLight(ownerId, c);
 }
 
-LightId LightSystem::createSpotLight(OwnerId ownerId, const LightCommon& common, const SpotLightParameters& parameters)
+LightId LightSystem::createSpotLight(OwnerId ownerId, const LightCommon& common, const SpotLightParameters& params)
 {
-    LightComponent lightComponent{};
-    lightComponent.common = common;
-
-    SpotLightParameters sanitizedParameters = parameters;
-    sanitizeSpotAngles(sanitizedParameters.innerAngleDegrees, sanitizedParameters.outerAngleDegrees);
-    sanitizedParameters.radius = std::max(0.0f, sanitizedParameters.radius);
-
-    lightComponent.parameters = sanitizedParameters;
-    return createLight(ownerId, lightComponent);
+    LightComponent c{};
+    c.common = common;
+    c.type = LightType::Spot;
+    c.parameters.spot = params;  
+    return createLight(ownerId, c);
 }
 
 void LightSystem::setAmbient(const Vector3& ambientColorValue, float ambientIntensityValue)
@@ -200,57 +209,56 @@ PackedLightsGPU LightSystem::packForGPU() const
 
         const Vector3 lightForwardDirection = safeNormalize(ownerTransform.forward, Vector3::Forward);
 
-        std::visit(
-            [&](auto&& lightParameters)
+        switch (lightInstance.lightComponent.type)
+        {
+            case LightType::Directional:
             {
-                using LightParameterType = std::decay_t<decltype(lightParameters)>;
+                GPUDirectionalLight gpu{};
+                gpu.direction = lightForwardDirection;
+                gpu.color = common.color;
+                gpu.intensity = std::max(0.0f, common.intensity);
+                packedLights.directionalLights.push_back(gpu);
+                break;
+            }
+            case LightType::Point:
+            {
+                GPUPointLight gpu{};
+                gpu.position = ownerTransform.position;
+                gpu.radius = std::max(0.0f, lightInstance.lightComponent.parameters.point.radius);
+                gpu.color = common.color;
+                gpu.intensity = std::max(0.0f, common.intensity);
+                packedLights.pointLights.push_back(gpu);
+                break;
+            }
+            case LightType::Spot:
+            {
+                GPUSpotLight gpu{};
+                gpu.position = ownerTransform.position;
+                gpu.direction = lightForwardDirection;
+                gpu.radius = std::max(0.0f, lightInstance.lightComponent.parameters.spot.radius);
+                gpu.color = common.color;
+                gpu.intensity = std::max(0.0f, common.intensity);
 
-                if constexpr (std::is_same_v<LightParameterType, DirectionalLightParameters>)
-                {
-                    GPUDirectionalLight gpuDirectionalLight{};
-                    gpuDirectionalLight.direction = lightForwardDirection;
-                    gpuDirectionalLight.color = common.color;
-                    gpuDirectionalLight.intensity = common.intensity;
+                float inner = lightInstance.lightComponent.parameters.spot.innerAngleDegrees;
+                float outer = lightInstance.lightComponent.parameters.spot.outerAngleDegrees;
+                sanitizeSpotAngles(inner, outer);
 
-                    packedLights.directionalLights.push_back(gpuDirectionalLight);
-                }
-                else if constexpr (std::is_same_v<LightParameterType, PointLightParameters>)
-                {
-                    GPUPointLight gpuPointLight{};
-                    gpuPointLight.position = ownerTransform.position;
-                    gpuPointLight.radius = std::max(0.0f, lightParameters.radius);
-                    gpuPointLight.color = common.color;
-                    gpuPointLight.intensity = common.intensity;
+                const float innerRad = degreesToRadians(inner);
+                const float outerRad = degreesToRadians(outer);
 
-                    packedLights.pointLights.push_back(gpuPointLight);
-                }
-                else if constexpr (std::is_same_v<LightParameterType, SpotLightParameters>)
-                {
-                    SpotLightParameters sanitizedSpotLightParameters = lightParameters;
-                    sanitizeSpotAngles(sanitizedSpotLightParameters.innerAngleDegrees,
-                        sanitizedSpotLightParameters.outerAngleDegrees);
+                gpu.cosineInnerAngle = std::cos(innerRad);
+                gpu.cosineOuterAngle = std::cos(outerRad);
 
-                    GPUSpotLight gpuSpotLight{};
-                    gpuSpotLight.position = ownerTransform.position;
-                    gpuSpotLight.direction = lightForwardDirection;
-                    gpuSpotLight.radius = std::max(0.0f, sanitizedSpotLightParameters.radius);
-                    gpuSpotLight.color = common.color;
-                    gpuSpotLight.intensity = common.intensity;
+                if (gpu.cosineInnerAngle < gpu.cosineOuterAngle)
+                    std::swap(gpu.cosineInnerAngle, gpu.cosineOuterAngle);
 
-                    const float innerAngleRadians = degreesToRadians(sanitizedSpotLightParameters.innerAngleDegrees);
-                    const float outerAngleRadians = degreesToRadians(sanitizedSpotLightParameters.outerAngleDegrees);
+                packedLights.spotLights.push_back(gpu);
+                break;
+            }
+            default:
+                break;
+        }
 
-                    gpuSpotLight.cosineInnerAngle = std::cos(innerAngleRadians);
-                    gpuSpotLight.cosineOuterAngle = std::cos(outerAngleRadians);
-
-                    if (gpuSpotLight.cosineInnerAngle < gpuSpotLight.cosineOuterAngle)
-                        std::swap(gpuSpotLight.cosineInnerAngle, gpuSpotLight.cosineOuterAngle);
-
-                    packedLights.spotLights.push_back(gpuSpotLight);
-                }
-            },
-            lightInstance.lightComponent.parameters
-        );
     }
 
     return packedLights;

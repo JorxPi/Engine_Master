@@ -9,6 +9,15 @@
 class ModuleCameraEditor;
 class ModulePipeline;
 
+enum class GizmoTarget
+{
+	None,
+	Model,
+	DirectionalLight,
+	PointLight,
+	SpotLight
+};
+
 class ModuleEditor : public Module
 {
 public:
@@ -78,6 +87,7 @@ private:
 	ImGuizmo::MODE gizmoMode = ImGuizmo::LOCAL;
 	bool showGizmo = true;
 	bool hasSelection = true;
+	GizmoTarget gizmoTarget = GizmoTarget::Model;
 
 	//Scene
 	ImVec2 sceneCanvasSize = ImVec2(0, 0);

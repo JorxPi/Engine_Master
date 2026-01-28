@@ -8,7 +8,13 @@
 #include "ModuleSampler.h"
 #include "ModuleShaderDescriptors.h"
 #include "ModuleRingBuffer.h"
+#include "DebugDrawPass.h"
 #include <SimpleMath.h>
+
+static inline const float* asFloat3(const Vector3& v)
+{
+    return &v.x;
+}
 
 ModulePipeline::ModulePipeline() {
 
@@ -22,6 +28,8 @@ bool ModulePipeline::init() {
     auto modD3D12 = app->getModule<ModuleD3D12>();
     auto modDesc = app->getModule<ModuleShaderDescriptors>();
     nullSrvIndex = modDesc->createNullTexture2DSRV();
+
+    planeMesh.createPlane(10.0f);
     
     duckModel.loadModel("Assets/Models/Duck/Duck.gltf");
     duckModel.setModelMatrix(Matrix::CreateScale(0.01f));
@@ -40,10 +48,11 @@ bool ModulePipeline::init() {
     return true;
 }
 
-void ModulePipeline::preRender() {
+void ModulePipeline::preRender()
+{
     auto modD3D12 = app->getModule<ModuleD3D12>();
     ID3D12GraphicsCommandList* cmd = modD3D12->getCommandList();
-    
+
     auto modSampler = app->getModule<ModuleSampler>();
     auto modDesc = app->getModule<ModuleShaderDescriptors>();
     auto camera = app->getModule<ModuleCameraEditor>();
@@ -57,12 +66,8 @@ void ModulePipeline::preRender() {
     const uint32_t w = (uint32_t)sceneRT->getWidth();
     const uint32_t h = (uint32_t)sceneRT->getHeight();
 
-    Matrix model = duckModel.getModelMatrix();
-
     const Matrix& view = camera->getViewMatrix();
     const Matrix& proj = camera->getProjectionMatrix();
-
-    Matrix mvp = (model * view * proj).Transpose();
 
     ID3D12DescriptorHeap* heaps[] = { modDesc->getHeap(), modSampler->getHeap() };
     cmd->SetDescriptorHeaps(2, heaps);
@@ -71,97 +76,146 @@ void ModulePipeline::preRender() {
     cmd->SetPipelineState(pso.Get());
     cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // b0
-    cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &mvp, 0);
-
     PerFrame perFrame{};
     perFrame.viewPos = camera->readCamera().position;
 
     auto perFrameAllocation = ring->allocBuffer((uint32_t)sizeof(PerFrame));
     memcpy(perFrameAllocation.cpu, &perFrame, sizeof(PerFrame));
-
-    // b1
     cmd->SetGraphicsRootConstantBufferView(1, perFrameAllocation.gpu);
 
-    // b3
     GPULightsConstantBuffer gpuLights = lightSystem.packForGPUConstantBuffer();
 
     auto lightsAllocation = ring->allocBuffer((uint32_t)sizeof(GPULightsConstantBuffer));
     memcpy(lightsAllocation.cpu, &gpuLights, sizeof(GPULightsConstantBuffer));
-
     cmd->SetGraphicsRootConstantBufferView(3, lightsAllocation.gpu);
 
-    // s0
     cmd->SetGraphicsRootDescriptorTable(5, modSampler->getGpuHandle((UINT)phong.samplerIndex));
 
-    const auto& meshes = duckModel.getMeshes();
-    const auto& mats = duckModel.getMaterials();
-
-    const Matrix modelT = duckModel.getModelMatrix().Transpose();;
-
-    Matrix normalMat = duckModel.getModelMatrix();
-    normalMat.Invert();
-    normalMat = normalMat.Transpose();
-
-    for (const Mesh& mesh : meshes)
+    // DRAW PLANE
     {
-        cmd->IASetVertexBuffers(0, 1, &mesh.getVBV());
-        if (mesh.hasIndices()) cmd->IASetIndexBuffer(&mesh.getIBV());
+        Matrix planeModel = Matrix::CreateTranslation(0.0f, -0.01f, 0.0f);
 
-        const int matIdx = mesh.getMaterialIndex();
+        Matrix planeMvp = (planeModel * view * proj).Transpose();
+        cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &planeMvp, 0);
+
+        Matrix planeModelT = planeModel.Transpose();
+
+        Matrix planeNormalMat = planeModel;
+        planeNormalMat.Invert();
+        planeNormalMat = planeNormalMat.Transpose();
 
         PerInstance perInst{};
-        perInst.modelMat = modelT;
-        perInst.normalMat = normalMat; 
+        perInst.modelMat = planeModelT;
+        perInst.normalMat = planeNormalMat;
 
-        PBRPhongMaterialData matData{};
-        uint32_t srvIndex = nullSrvIndex;
-
-        if (matIdx >= 0 && matIdx < (int)mats.size())
-        {
-            const auto& srcMat = mats[matIdx];
-
-            if (phong.useOverride)
-            {
-                matData = phong.overrideMat;
-
-                srvIndex = matData.hasDiffuseTex ? srcMat.getColourSrvIndex() : nullSrvIndex;
-            }
-            else
-            {
-                matData = srcMat.getPBRPhong();
-                srvIndex = srcMat.getColourSrvIndex();
-            }
-        }
-        else
-        {
-            matData = phong.overrideMat;
-            srvIndex = nullSrvIndex;
-        }
-
-        perInst.material = matData;
+        auto mat = phong.overrideMat;
+        mat.hasDiffuseTex = FALSE; 
+        mat.diffuseColour = XMFLOAT3(0.7f, 0.7f, 0.7f); 
+        perInst.material = mat;
 
         auto piAlloc = ring->allocBuffer((uint32_t)sizeof(PerInstance));
         memcpy(piAlloc.cpu, &perInst, sizeof(PerInstance));
 
-        // b2
         cmd->SetGraphicsRootConstantBufferView(2, piAlloc.gpu);
-        // t0
-        cmd->SetGraphicsRootDescriptorTable(4, modDesc->getGpuHandle(srvIndex));
 
-        if (mesh.hasIndices()) cmd->DrawIndexedInstanced(mesh.getNumIndices(), 1, 0, 0, 0);
-        else cmd->DrawInstanced(mesh.getNumVertices(), 1, 0, 0);
+        cmd->SetGraphicsRootDescriptorTable(4, modDesc->getGpuHandle(nullSrvIndex));
+
+        cmd->IASetVertexBuffers(0, 1, &planeMesh.getVBV());
+        if (planeMesh.hasIndices()) cmd->IASetIndexBuffer(&planeMesh.getIBV());
+
+        if (planeMesh.hasIndices()) cmd->DrawIndexedInstanced(planeMesh.getNumIndices(), 1, 0, 0, 0);
+        else                        cmd->DrawInstanced(planeMesh.getNumVertices(), 1, 0, 0);
     }
 
-    // Grid & Axis
+    // DRAW DUCK
+    {
+        const Matrix model = duckModel.getModelMatrix();
 
+        Matrix mvp = (model * view * proj).Transpose();
+        cmd->SetGraphicsRoot32BitConstants(0, sizeof(Matrix) / sizeof(UINT32), &mvp, 0);
+
+        const auto& meshes = duckModel.getMeshes();
+        const auto& mats = duckModel.getMaterials();
+
+        const Matrix modelT = model.Transpose();
+
+        Matrix normalMat = model;
+        normalMat.Invert();
+        normalMat = normalMat.Transpose();
+
+        for (const Mesh& mesh : meshes)
+        {
+            cmd->IASetVertexBuffers(0, 1, &mesh.getVBV());
+            if (mesh.hasIndices()) cmd->IASetIndexBuffer(&mesh.getIBV());
+
+            const int matIdx = mesh.getMaterialIndex();
+
+            PerInstance perInst{};
+            perInst.modelMat = modelT;
+            perInst.normalMat = normalMat;
+
+            PBRPhongMaterialData matData{};
+            uint32_t srvIndex = nullSrvIndex;
+
+            if (matIdx >= 0 && matIdx < (int)mats.size())
+            {
+                const auto& srcMat = mats[matIdx];
+
+                if (phong.useOverride)
+                {
+                    matData = phong.overrideMat;
+                    srvIndex = matData.hasDiffuseTex ? srcMat.getColourSrvIndex() : nullSrvIndex;
+                }
+                else
+                {
+                    matData = srcMat.getPBRPhong();
+                    srvIndex = srcMat.getColourSrvIndex();
+                }
+            }
+            else
+            {
+                matData = phong.overrideMat;
+                srvIndex = nullSrvIndex;
+            }
+
+            perInst.material = matData;
+
+            auto piAlloc = ring->allocBuffer((uint32_t)sizeof(PerInstance));
+            memcpy(piAlloc.cpu, &perInst, sizeof(PerInstance));
+
+            cmd->SetGraphicsRootConstantBufferView(2, piAlloc.gpu);
+            cmd->SetGraphicsRootDescriptorTable(4, modDesc->getGpuHandle(srvIndex));
+
+            if (mesh.hasIndices()) cmd->DrawIndexedInstanced(mesh.getNumIndices(), 1, 0, 0, 0);
+            else cmd->DrawInstanced(mesh.getNumVertices(), 1, 0, 0);
+        }
+    }
+
+    // DEBUG DRAW
     if (showGrid) dd::xzSquareGrid(-10.0f, 10.0f, 0.0f, 1.0f, dd::colors::LightGray);
     if (showAxis) dd::axisTriad(ddConvert(Matrix::Identity), 0.1f, 1.0f);
 
-    debugDraw->record(cmd, (uint32_t)w, (uint32_t)h, view, proj);
+    DebugDrawData debugData;
+
+    if (showDirectionalLightDebugDraw)
+        debugDrawer.addDirectionalLight(debugData, lightSystem, directionalOwner, directionalLight);
+
+    if (showPointLightDebugDraw)
+        debugDrawer.addPointLight(debugData, lightSystem, pointOwner, pointLight);
+
+    if (showSpotLightDebugDraw)
+        debugDrawer.addSpotLight(debugData, lightSystem, spotOwner, spotLight);
+
+    for (const DebugLine& line : debugData.lines)
+    {
+        dd::line(asFloat3(line.start), asFloat3(line.end), dd::colors::White);
+    }
+    
+    debugDraw->record(cmd, w, h, view, proj);
 
     sceneRT->endRender(cmd);
 }
+
 
 struct Vertex {
     Vector3 position;
@@ -206,7 +260,7 @@ bool ModulePipeline::createPSO() {
     std::vector<uint8_t> dataVS, dataPS;
 
     dataVS = DX::ReadData(L"PhongVS.cso");
-    dataPS = DX::ReadData(L"PhongPS.cso");
+    dataPS = DX::ReadData(L"LightsPS.cso");
 
     D3D12_INPUT_ELEMENT_DESC inputLayout[] = {  
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }, 
@@ -290,7 +344,7 @@ void ModulePipeline::createProvisionalLights() {
     dirCommon.enabled = true;
     dirCommon.color = Vector3(1, 1, 1);
     dirCommon.intensity = 3.0f;
-    directionalLight = lightSystem.createDirectionalLight(directionalOwner, dirCommon, {});
+    directionalLight = lightSystem.createDirectionalLight(directionalOwner, dirCommon);
 
     // Point light
     pointOwner = lightSystem.createOwner({ Vector3(0, 2, 0), Vector3::Forward });
@@ -298,9 +352,10 @@ void ModulePipeline::createProvisionalLights() {
     pointCommon.enabled = true;
     pointCommon.color = Vector3(1, 0.9f, 0.7f);
     pointCommon.intensity = 20.0f;
-    PointLightParameters pointParameters{};
-    pointParameters.radius = 8.0f;
-    pointLight = lightSystem.createPointLight(pointOwner, pointCommon, pointParameters);
+    PointLightParameters pointParams{};
+    pointParams.radius = 8.0f;
+
+    pointLight = lightSystem.createPointLight(pointOwner, pointCommon, pointParams);
 
     // Spot light
     spotOwner = lightSystem.createOwner({ Vector3(0, 4, 4), Vector3(0, -0.7f, -1.0f) });
@@ -308,11 +363,13 @@ void ModulePipeline::createProvisionalLights() {
     spotCommon.enabled = true;
     spotCommon.color = Vector3(0.7f, 0.8f, 1.0f);
     spotCommon.intensity = 35.0f;
-    SpotLightParameters spotParameters{};
-    spotParameters.radius = 12.0f;
-    spotParameters.innerAngleDegrees = 15.0f;
-    spotParameters.outerAngleDegrees = 25.0f;
-    spotLight = lightSystem.createSpotLight(spotOwner, spotCommon, spotParameters);
+    SpotLightParameters spotParams{};
+    spotParams.radius = 12.0f;
+    spotParams.innerAngleDegrees = 15.0f;
+    spotParams.outerAngleDegrees = 25.0f;
+
+    spotLight = lightSystem.createSpotLight(spotOwner, spotCommon, spotParams);
+
 
     // Ambient
     lightSystem.setAmbient(Vector3(0.1f, 0.1f, 0.1f), 1.0f);

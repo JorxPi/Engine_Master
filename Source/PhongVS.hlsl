@@ -1,4 +1,4 @@
-#include "Phong.hlsli"
+#include "Lights.hlsli"
 
 cbuffer MVP : register(b0)
 {

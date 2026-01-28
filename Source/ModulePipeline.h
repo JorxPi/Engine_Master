@@ -5,6 +5,7 @@
 #include "PhongData.h"
 #include "RenderTexture.h"
 #include "LightSystem.h"
+#include "DebugDrawer.h"
 
 class ModulePipeline : public Module
 {
@@ -48,6 +49,10 @@ public:
     LightId getPointLight() const { return pointLight; }
     LightId getSpotLight() const { return spotLight; }
 
+    bool& editShowDirectionalLightDebugDraw() { return showDirectionalLightDebugDraw; }
+    bool& editShowPointLightDebugDraw() { return showPointLightDebugDraw; }
+    bool& editShowSpotLightDebugDraw() { return showSpotLightDebugDraw; }
+
 private:
     bool createRootSignature();
     bool createPSO();
@@ -59,6 +64,7 @@ private:
     std::wstring currentTexturePath;
 
     Model duckModel;
+    Mesh planeMesh;
 
     uint32_t nullSrvIndex = 0;
 
@@ -73,6 +79,11 @@ private:
     bool showAxis = true;
 
     //Light
+
+    DebugDrawer debugDrawer;
+    bool showDirectionalLightDebugDraw = true;
+    bool showPointLightDebugDraw = true;
+    bool showSpotLightDebugDraw = true;
 
     LightSystem lightSystem;
     OwnerId directionalOwner = 0;

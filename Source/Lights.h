@@ -1,6 +1,5 @@
 #pragma once
 
-#include <variant>
 #include <vector>
 #include <cstdint>
 #include <SimpleMath.h>
@@ -13,6 +12,13 @@ struct LightCommon
     bool enabled = true;
     Vector3 color = Vector3::One;
     float intensity = 1.0f;
+};
+
+enum class LightType : uint8_t
+{
+    Directional = 0,
+    Point = 1,
+    Spot = 2
 };
 
 struct DirectionalLightParameters
@@ -32,16 +38,36 @@ struct SpotLightParameters
     float outerAngleDegrees = 30.0f;
 };
 
-using LightParametersVariant = std::variant<
-    DirectionalLightParameters,
-    PointLightParameters,
-    SpotLightParameters
->;
+struct LightParameters
+{
+    union
+    {
+        DirectionalLightParameters directional;
+        PointLightParameters       point;
+        SpotLightParameters        spot;
+    };
+
+    LightParameters() { directional = {}; }
+
+    static LightParameters MakeDirectional()
+    {
+        LightParameters p; p.directional = {}; return p;
+    }
+    static LightParameters MakePoint(float radius)
+    {
+        LightParameters p; p.point = { radius }; return p;
+    }
+    static LightParameters MakeSpot(float radius, float innerDeg, float outerDeg)
+    {
+        LightParameters p; p.spot = { radius, innerDeg, outerDeg }; return p;
+    }
+};
 
 struct LightComponent
 {
     LightCommon common;
-    LightParametersVariant parameters;
+    LightType type = LightType::Directional;
+    LightParameters parameters = LightParameters::MakeDirectional();
 };
 
 struct ManualTransform

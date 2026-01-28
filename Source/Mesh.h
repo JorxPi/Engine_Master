@@ -17,6 +17,9 @@ public:
 
     void load(const tinygltf::Model& model, const tinygltf::Mesh& mesh, const tinygltf::Primitive& primitive);
 
+    void createFromRaw(const Vertex* vertices, uint32_t vertexCount,const uint16_t* indices, uint32_t indexCount,int32_t materialIdx = -1);
+    void createPlane(float halfSize = 5.0f, int32_t materialIdx = -1);
+
     const D3D12_VERTEX_BUFFER_VIEW& getVBV() const { return vbv; }
     const D3D12_INDEX_BUFFER_VIEW& getIBV() const { return ibv; }
     bool hasIndices() const { return numIndices > 0; }

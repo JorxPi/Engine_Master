@@ -22,20 +22,9 @@ public:
     LightInstance* getLight(LightId lightId);
     const LightInstance* getLight(LightId lightId) const;
 
-    LightId createDirectionalLight(
-        OwnerId ownerId,
-        const LightCommon& common = {},
-        const DirectionalLightParameters& parameters = {});
-
-    LightId createPointLight(
-        OwnerId ownerId,
-        const LightCommon& common,
-        const PointLightParameters& parameters);
-
-    LightId createSpotLight(
-        OwnerId ownerId,
-        const LightCommon& common,
-        const SpotLightParameters& parameters);
+    LightId createDirectionalLight(OwnerId ownerId, const LightCommon& common = {});
+    LightId createPointLight(OwnerId ownerId, const LightCommon& common, const PointLightParameters& params);
+    LightId createSpotLight(OwnerId ownerId, const LightCommon& common, const SpotLightParameters& params);
 
     void setAmbient(const Vector3& ambientColorValue, float ambientIntensityValue);
     Vector3 getAmbientColor() const { return ambientColor; }

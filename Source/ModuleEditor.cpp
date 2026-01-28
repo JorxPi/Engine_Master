@@ -705,7 +705,9 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
         if (ImGui::ColorEdit3("Ambient Color", col))
             ambientColor = Vector3(col[0], col[1], col[2]);
 
-        if (ImGui::DragFloat("Ambient Intensity", &ambientIntensity, 0.05f, 0.0f, 10.0f)); 
+        if (ImGui::DragFloat("Ambient Intensity", &ambientIntensity, 0.05f, 0.0f, 10.0f))
+        {
+        }
 
         lightSystem.setAmbient(ambientColor, ambientIntensity);
     }
@@ -731,6 +733,15 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
                 transform.forward.Normalize();
 
             lightSystem.setOwnerTransform(ownerId, transform);
+
+            if (ImGui::SmallButton("Gizmo##Dir"))
+            {
+                gizmoTarget = GizmoTarget::DirectionalLight;
+                hasSelection = true;
+                gizmoOp = ImGuizmo::ROTATE;
+            }
+
+            ImGui::Checkbox("Directional Debug##Draw", &pipe->editShowDirectionalLightDebugDraw());
         }
 
         if (LightInstance* instance = lightSystem.getLight(lightId))
@@ -762,6 +773,15 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
         {
             editVector3("Position##Point", transform.position, 0.05f);
             lightSystem.setOwnerPosition(ownerId, transform.position);
+
+            if (ImGui::SmallButton("Gizmo##Point"))
+            {
+                gizmoTarget = GizmoTarget::PointLight;
+                hasSelection = true;
+                gizmoOp = ImGuizmo::TRANSLATE;
+            }
+
+            ImGui::Checkbox("Point Debug##Draw", &pipe->editShowPointLightDebugDraw());
         }
 
         if (LightInstance* instance = lightSystem.getLight(lightId))
@@ -775,8 +795,16 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
 
             ImGui::DragFloat("Intensity##Point", &common.intensity, 0.1f, 0.0f, 500.0f);
 
-            if (auto* params = std::get_if<PointLightParameters>(&instance->lightComponent.parameters))
-                ImGui::DragFloat("Radius##Point", &params->radius, 0.1f, 0.0f, 200.0f);
+            if (instance->lightComponent.type == LightType::Point)
+            {
+                ImGui::DragFloat("Radius##Point",
+                    &instance->lightComponent.parameters.point.radius,
+                    0.1f, 0.0f, 200.0f);
+            }
+            else
+            {
+                ImGui::TextDisabled("This light is not of type Point.");
+            }
         }
     }
 
@@ -797,6 +825,16 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
                 transform.forward.Normalize();
 
             lightSystem.setOwnerTransform(ownerId, transform);
+
+            if (ImGui::SmallButton("Gizmo##Spot"))
+            {
+                gizmoTarget = GizmoTarget::SpotLight;
+                hasSelection = true;
+                gizmoOp = ImGuizmo::ROTATE; 
+            }
+
+            ImGui::Checkbox("Spot Debug##Draw", &pipe->editShowSpotLightDebugDraw());
+
         }
 
         if (LightInstance* instance = lightSystem.getLight(lightId))
@@ -810,17 +848,30 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
 
             ImGui::DragFloat("Intensity##Spot", &common.intensity, 0.1f, 0.0f, 500.0f);
 
-            if (auto* params = std::get_if<SpotLightParameters>(&instance->lightComponent.parameters))
+            if (instance->lightComponent.type == LightType::Spot)
             {
-                ImGui::DragFloat("Radius##Spot", &params->radius, 0.1f, 0.0f, 200.0f);
-                ImGui::DragFloat("Inner Angle##Spot", &params->innerAngleDegrees, 0.1f, 0.0f, 179.0f);
-                ImGui::DragFloat("Outer Angle##Spot", &params->outerAngleDegrees, 0.1f, 0.0f, 179.0f);
+                ImGui::DragFloat("Radius##Spot",
+                    &instance->lightComponent.parameters.spot.radius,
+                    0.1f, 0.0f, 200.0f);
+
+                ImGui::DragFloat("Inner Angle##Spot",
+                    &instance->lightComponent.parameters.spot.innerAngleDegrees,
+                    0.1f, 0.0f, 179.0f);
+
+                ImGui::DragFloat("Outer Angle##Spot",
+                    &instance->lightComponent.parameters.spot.outerAngleDegrees,
+                    0.1f, 0.0f, 179.0f);
+            }
+            else
+            {
+                ImGui::TextDisabled("This light is not of type Spot.");
             }
         }
     }
 
     ImGui::End();
 }
+
 
 
 void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
@@ -863,12 +914,22 @@ void ModuleEditor::updateGizmoHotkeys()
     if (ImGui::IsKeyPressed(ImGuiKey_R)) { gizmoOp = ImGuizmo::SCALE;     hasSelection = true; }
 }
 
+static Vector3 SafeUpFromForward(const Vector3& fwd)
+{
+    Vector3 f = fwd; f.Normalize();
+    return (fabsf(f.Dot(Vector3::Up)) > 0.99f) ? Vector3::Right : Vector3::Up;
+}
+
+static Matrix MakeLightMatrix(const Vector3& pos, const Vector3& forward)
+{
+    Vector3 f = forward; f.Normalize();
+    Vector3 upRef = SafeUpFromForward(f);
+    return Matrix::CreateWorld(pos, f, upRef);
+}
+
 void ModuleEditor::drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam)
 {
     if (!showGizmo || !pipe || !cam || !hasSelection || !sceneDrawList) return;
-
-    Model& model = pipe->getModel();
-    Matrix objectMatrix = model.getModelMatrix();
 
     ImGuizmo::SetDrawlist(sceneDrawList);
     ImGuizmo::SetOrthographic(false);
@@ -877,10 +938,55 @@ void ModuleEditor::drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam)
     const Matrix& view = cam->getViewMatrix();
     const Matrix& proj = cam->getProjectionMatrix();
 
-    ImGuizmo::Manipulate((const float*)&view, (const float*)&proj, gizmoOp, gizmoMode, (float*)&objectMatrix);
+    // --- MODEL gizmo (your current logic) ---
+    if (gizmoTarget == GizmoTarget::Model)
+    {
+        Model& model = pipe->getModel();
+        Matrix objectMatrix = model.getModelMatrix();
+
+        ImGuizmo::Manipulate((const float*)&view, (const float*)&proj, gizmoOp, gizmoMode, (float*)&objectMatrix);
+
+        if (ImGuizmo::IsUsing())
+            model.setModelMatrix(objectMatrix);
+
+        return;
+    }
+
+    // --- LIGHT gizmo ---
+    LightSystem& ls = pipe->editLightSystem();
+
+    OwnerId ownerId = 0;
+    switch (gizmoTarget)
+    {
+    case GizmoTarget::DirectionalLight: ownerId = pipe->getDirectionalOwner(); break;
+    case GizmoTarget::PointLight:       ownerId = pipe->getPointOwner();       break;
+    case GizmoTarget::SpotLight:        ownerId = pipe->getSpotOwner();        break;
+    default: return;
+    }
+
+    ManualTransform t{};
+    if (!ls.getOwnerTransform(ownerId, t))
+        return;
+
+    Matrix m = MakeLightMatrix(t.position, t.forward);
+
+    ImGuizmo::Manipulate((const float*)&view, (const float*)&proj, gizmoOp, gizmoMode, (float*)&m);
 
     if (ImGuizmo::IsUsing())
-        model.setModelMatrix(objectMatrix);
+    {
+        ManualTransform out = t;
+        out.position = m.Translation();
+
+        Vector3 newForward = Vector3::TransformNormal(Vector3::Forward, m);
+        if (newForward.LengthSquared() > 1e-8f)
+            newForward.Normalize();
+        else
+            newForward = Vector3::Forward;
+
+        out.forward = newForward;
+
+        ls.setOwnerTransform(ownerId, out);
+    }
 }
 
 void ModuleEditor::updateGizmoSelection(ModulePipeline* pipe)
