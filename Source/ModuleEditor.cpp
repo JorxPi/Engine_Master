@@ -218,6 +218,7 @@ void ModuleEditor::buildDefaultLayout(ImGuiID dockspaceId)
 
     ImGui::DockBuilderDockWindow("Geometry Viewer", dockRight);
     ImGui::DockBuilderDockWindow("Phong Controls", dockRight);
+    ImGui::DockBuilderDockWindow("Lights", dockRight);
 
     ImGui::DockBuilderFinish(dockspaceId);
 }
@@ -729,9 +730,6 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
         if (lightSystem.getOwnerTransform(ownerId, transform))
         {
             editVector3("Direction (forward)", transform.forward, 0.01f);
-            if (ImGui::SmallButton("Normalize Direction"))
-                transform.forward.Normalize();
-
             lightSystem.setOwnerTransform(ownerId, transform);
 
             if (ImGui::SmallButton("Gizmo##Dir"))
@@ -741,13 +739,18 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
                 gizmoOp = ImGuizmo::ROTATE;
             }
 
-            ImGui::Checkbox("Directional Debug##Draw", &pipe->editShowDirectionalLightDebugDraw());
+            ImGui::SameLine(0.0f, 12.0f);
+            ImGui::Checkbox("Directional Debug##Dir", &pipe->editShowDirectionalLightDebugDraw());
+
+            if (LightInstance* instance = lightSystem.getLight(lightId))
+            {
+                ImGui::SameLine(0.0f, 12.0f);
+                ImGui::Checkbox("Enabled##Dir", &instance->lightComponent.common.enabled);
+            }
         }
 
         if (LightInstance* instance = lightSystem.getLight(lightId))
         {
-            ImGui::Checkbox("Enabled##Dir", &instance->lightComponent.common.enabled);
-
             float col[3] = {
                 instance->lightComponent.common.color.x,
                 instance->lightComponent.common.color.y,
@@ -781,13 +784,19 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
                 gizmoOp = ImGuizmo::TRANSLATE;
             }
 
-            ImGui::Checkbox("Point Debug##Draw", &pipe->editShowPointLightDebugDraw());
+            ImGui::SameLine();
+            ImGui::Checkbox("Point Debug##Point", &pipe->editShowPointLightDebugDraw());
+
+            if (LightInstance* instance = lightSystem.getLight(lightId))
+            {
+                ImGui::SameLine();
+                ImGui::Checkbox("Enabled##Point", &instance->lightComponent.common.enabled);
+            }
         }
 
         if (LightInstance* instance = lightSystem.getLight(lightId))
         {
             auto& common = instance->lightComponent.common;
-            ImGui::Checkbox("Enabled##Point", &common.enabled);
 
             float col[3] = { common.color.x, common.color.y, common.color.z };
             if (ImGui::ColorEdit3("Color##Point", col))
@@ -821,26 +830,28 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipe)
         {
             editVector3("Position##Spot", transform.position, 0.05f);
             editVector3("Direction##Spot", transform.forward, 0.01f);
-            if (ImGui::SmallButton("Normalize Spot Direction"))
-                transform.forward.Normalize();
-
             lightSystem.setOwnerTransform(ownerId, transform);
 
             if (ImGui::SmallButton("Gizmo##Spot"))
             {
                 gizmoTarget = GizmoTarget::SpotLight;
                 hasSelection = true;
-                gizmoOp = ImGuizmo::ROTATE; 
+                gizmoOp = ImGuizmo::ROTATE;
             }
 
-            ImGui::Checkbox("Spot Debug##Draw", &pipe->editShowSpotLightDebugDraw());
+            ImGui::SameLine(0.0f, 12.0f);
+            ImGui::Checkbox("Spot Debug##Spot", &pipe->editShowSpotLightDebugDraw());
 
+            if (LightInstance* instance = lightSystem.getLight(lightId))
+            {
+                ImGui::SameLine(0.0f, 12.0f);
+                ImGui::Checkbox("Enabled##Spot", &instance->lightComponent.common.enabled);
+            }
         }
 
         if (LightInstance* instance = lightSystem.getLight(lightId))
         {
             auto& common = instance->lightComponent.common;
-            ImGui::Checkbox("Enabled##Spot", &common.enabled);
 
             float col[3] = { common.color.x, common.color.y, common.color.z };
             if (ImGui::ColorEdit3("Color##Spot", col))

@@ -43,6 +43,25 @@ float3 PhongSpecularBRDF(float3 F0, float NdotL, float VdotR, float shininess)
     return normalization * fresnel * pow(VdotR, shininess);
 }
 
+float3 PBRNeutralToneMapping(float3 color)
+{
+    float x = min(color.r, min(color.g, color.b));
+    float offset = x < 0.08 ? x - 6.25 * x * x : 0.04;
+    color -= offset;
+    float peak = max(color.r, max(color.g, color.b));
+    const float startCompression = 0.8 - 0.04; 
+
+    if (peak < startCompression)
+        return color;
+    const float d = 1. - startCompression;
+    float newPeak = 1. - d * d / (peak + d - startCompression);
+    color *= newPeak / peak;
+    
+    const float desaturation = 0.15;
+    float g = 1. - 1. / (desaturation * (peak - newPeak) + 1.);
+    return lerp(color, newPeak.xxx, g);
+}
+
 float3 EvaluateLight(float3 lightDirection, float3 lightColor, float3 normalVector, float3 viewDirection, float3 F0, float3 diffuseBRDF, float shininess)
 {
     float normalDotLight = saturate(-dot(lightDirection, normalVector));
@@ -143,6 +162,8 @@ float4 main(float3 worldPos : POSITION, float3 normal : NORMAL, float2 coord : T
 
     // Ambient
     float3 indirectLighting = ambientColor * ambientIntensity * albedoEnergy;
+    
+    float3 colorMapped = PBRNeutralToneMapping(directLighting + indirectLighting);
 
-    return float4(directLighting + indirectLighting, 1.0f);
+    return float4(colorMapped, 1.0f);
 }
