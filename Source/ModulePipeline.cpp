@@ -198,13 +198,13 @@ void ModulePipeline::preRender()
     DebugDrawData debugData;
 
     if (showDirectionalLightDebugDraw)
-        debugDrawer.addDirectionalLight(debugData, lightSystem, directionalOwner, directionalLight);
+        debugDrawer.addDirectionalLight(debugData, lightSystem, debugLightId);
 
     if (showPointLightDebugDraw)
-        debugDrawer.addPointLight(debugData, lightSystem, pointOwner, pointLight);
+        debugDrawer.addPointLight(debugData, lightSystem, debugLightId);
 
     if (showSpotLightDebugDraw)
-        debugDrawer.addSpotLight(debugData, lightSystem, spotOwner, spotLight);
+        debugDrawer.addSpotLight(debugData, lightSystem, debugLightId);
 
     for (const DebugLine& line : debugData.lines)
     {
@@ -337,41 +337,19 @@ void ModulePipeline::setSceneSize(int w, int h)
         cam->requestResize((uint32_t)w, (uint32_t)h);
 }
 
-void ModulePipeline::createProvisionalLights() {
-    // Directional light
-    directionalOwner = lightSystem.createOwner({ Vector3::Zero, Vector3(-0.5f, -0.5f, -0.5f) });
-    LightCommon dirCommon{};
-    dirCommon.enabled = true;
-    dirCommon.color = Vector3(1, 1, 1);
-    dirCommon.intensity = 3.0f;
-    directionalLight = lightSystem.createDirectionalLight(directionalOwner, dirCommon);
+void ModulePipeline::createProvisionalLights()
+{
+    debugLightOwner = lightSystem.createOwner({ Vector3(0, 2, 0), Vector3::Forward });
 
-    // Point light
-    pointOwner = lightSystem.createOwner({ Vector3(0, 2, 0), Vector3::Forward });
-    LightCommon pointCommon{};
-    pointCommon.enabled = true;
-    pointCommon.color = Vector3(1, 0.9f, 0.7f);
-    pointCommon.intensity = 20.0f;
+    LightCommon common{};
+    common.enabled = true;
+    common.color = Vector3(1, 0.9f, 0.7f);
+    common.intensity = 20.0f;
+
     PointLightParameters pointParams{};
     pointParams.radius = 8.0f;
 
-    pointLight = lightSystem.createPointLight(pointOwner, pointCommon, pointParams);
+    debugLightId = lightSystem.createPointLight(debugLightOwner, common, pointParams);
 
-    // Spot light
-    spotOwner = lightSystem.createOwner({ Vector3(0, 4, 4), Vector3(0, -0.7f, -1.0f) });
-    LightCommon spotCommon{};
-    spotCommon.enabled = true;
-    spotCommon.color = Vector3(0.7f, 0.8f, 1.0f);
-    spotCommon.intensity = 35.0f;
-    SpotLightParameters spotParams{};
-    spotParams.radius = 12.0f;
-    spotParams.innerAngleDegrees = 15.0f;
-    spotParams.outerAngleDegrees = 25.0f;
-
-    spotLight = lightSystem.createSpotLight(spotOwner, spotCommon, spotParams);
-
-
-    // Ambient
     lightSystem.setAmbient(Vector3(0.1f, 0.1f, 0.1f), 1.0f);
-
 }

@@ -41,13 +41,8 @@ public:
 
     LightSystem& editLightSystem() { return lightSystem; }
 
-    OwnerId getDirectionalOwner() const { return directionalOwner; }
-    OwnerId getPointOwner() const { return pointOwner; }
-    OwnerId getSpotOwner() const { return spotOwner; }
-
-    LightId getDirectionalLight() const { return directionalLight; }
-    LightId getPointLight() const { return pointLight; }
-    LightId getSpotLight() const { return spotLight; }
+    OwnerId getSingleLightOwner() const { return debugLightOwner; }
+    LightId getSingleLightId() const { return debugLightId; }
 
     bool& editShowDirectionalLightDebugDraw() { return showDirectionalLightDebugDraw; }
     bool& editShowPointLightDebugDraw() { return showPointLightDebugDraw; }
@@ -86,12 +81,7 @@ private:
     bool showSpotLightDebugDraw = true;
 
     LightSystem lightSystem;
-    OwnerId directionalOwner = 0;
-    OwnerId pointOwner = 0;
-    OwnerId spotOwner = 0;
-
-    LightId directionalLight = 0;
-    LightId pointLight = 0;
-    LightId spotLight = 0;
+    OwnerId debugLightOwner{};
+    LightId debugLightId{};
 
 };

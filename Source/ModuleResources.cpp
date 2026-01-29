@@ -68,9 +68,9 @@ ComPtr<ID3D12Resource> ModuleResources::createTextureFromFile(const wchar_t* fil
     DirectX::ScratchImage image;
     if (FAILED(LoadFromDDSFile(filePath, DDS_FLAGS_NONE, nullptr, image)))
     {
-        if (FAILED(LoadFromTGAFile(filePath, nullptr, image)))
+        if (FAILED(LoadFromTGAFile(filePath, TGA_FLAGS_DEFAULT_SRGB, nullptr, image)))
         {
-            if (FAILED(LoadFromWICFile(filePath, WIC_FLAGS_NONE, nullptr, image))) 
+            if (FAILED(LoadFromWICFile(filePath, WIC_FLAGS_DEFAULT_SRGB, nullptr, image)))
                 return nullptr;
         }
     }
@@ -95,9 +95,7 @@ ComPtr<ID3D12Resource> ModuleResources::createTextureFromFile(const wchar_t* fil
         }
     }
 
-    DXGI_FORMAT texFormat = metaData.format;
-    if (DirectX::IsSRGB(metaData.format) && texFormat == DXGI_FORMAT_R8G8B8A8_UNORM)
-        texFormat = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    DXGI_FORMAT texFormat = DirectX::MakeSRGB(metaData.format);
 
     D3D12_RESOURCE_DESC texDesc = CD3DX12_RESOURCE_DESC::Tex2D(texFormat, UINT64(metaData.width), UINT(metaData.height), UINT16(metaData.arraySize), UINT16(metaData.mipLevels));
     CD3DX12_HEAP_PROPERTIES texHeap(D3D12_HEAP_TYPE_DEFAULT);
