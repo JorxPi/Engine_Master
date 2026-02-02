@@ -9,6 +9,7 @@
 #include "ModuleShaderDescriptors.h"
 #include "ModuleRingBuffer.h"
 #include "DebugDrawPass.h"
+#include "LightDebugDraw.h"
 #include <SimpleMath.h>
 
 static inline const float* asFloat3(const Vector3& v)
@@ -195,20 +196,26 @@ void ModulePipeline::preRender()
     if (showGrid) dd::xzSquareGrid(-10.0f, 10.0f, 0.0f, 1.0f, dd::colors::LightGray);
     if (showAxis) dd::axisTriad(ddConvert(Matrix::Identity), 0.1f, 1.0f);
 
-    DebugDrawData debugData;
 
-    if (showDirectionalLightDebugDraw)
-        debugDrawer.addDirectionalLight(debugData, lightSystem, debugLightId);
-
-    if (showPointLightDebugDraw)
-        debugDrawer.addPointLight(debugData, lightSystem, debugLightId);
-
-    if (showSpotLightDebugDraw)
-        debugDrawer.addSpotLight(debugData, lightSystem, debugLightId);
-
-    for (const DebugLine& line : debugData.lines)
+    if (showDirectionalLightDebugDraw || showPointLightDebugDraw || showSpotLightDebugDraw)
     {
-        dd::line(asFloat3(line.start), asFloat3(line.end), dd::colors::White);
+        const LightInstance* inst = lightSystem.getLight(debugLightId);
+        if (inst)
+        {
+            bool draw = false;
+            if (inst->lightComponent.type == LightType::DIRECTIONAL) {
+                draw = showDirectionalLightDebugDraw;
+            }
+            if (inst->lightComponent.type == LightType::POINT) {
+                draw = showPointLightDebugDraw;
+            }
+            if (inst->lightComponent.type == LightType::SPOT) {
+                draw = showSpotLightDebugDraw;
+            }
+
+            if (draw)
+                LightDebugDraw::drawLight(lightSystem, debugLightId);
+        }
     }
     
     debugDraw->record(cmd, w, h, view, proj);

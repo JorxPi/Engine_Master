@@ -20,9 +20,6 @@ struct DebugDrawData
 class DebugDrawer
 {
 public:
-    float m_directionalLength = 2.0f;
-    int m_circleSegments = 24;
-
     void addDirectionalLight(DebugDrawData& output, const LightSystem& lightSystem, LightId lightId) const;
     void addPointLight(DebugDrawData& output, const LightSystem& lightSystem, LightId lightId) const;
     void addSpotLight(DebugDrawData& output, const LightSystem& lightSystem, LightId lightId) const;
@@ -63,7 +60,6 @@ private:
         int segments = 0;
     };
 
-private:
     void addArrow(DebugDrawData& output, const ArrowParams& params) const;
     void addWireCircle(DebugDrawData& output, const WireCircleParams& params) const;
     void addWireCone(DebugDrawData& output, const WireConeParams& params) const;

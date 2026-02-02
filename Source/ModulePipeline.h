@@ -74,8 +74,6 @@ private:
     bool showAxis = true;
 
     //Light
-
-    DebugDrawer debugDrawer;
     bool showDirectionalLightDebugDraw = true;
     bool showPointLightDebugDraw = true;
     bool showSpotLightDebugDraw = true;

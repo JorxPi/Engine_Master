@@ -31,7 +31,8 @@ enum class LightType : uint8_t
 {
     DIRECTIONAL = 0,
     POINT = 1,
-    SPOT = 2
+    SPOT = 2,
+    COUNT = 3
 };
 
 struct LightCommon

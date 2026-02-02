@@ -180,11 +180,13 @@ void DebugDrawer::addDirectionalLight(DebugDrawData& output, const LightSystem& 
         return;
     }
 
+    float directionalLength = 2.0f;
+
     ArrowParams arrowParams{};
     arrowParams.position = ownerTransform.position;
     arrowParams.direction = ownerTransform.forward;
     arrowParams.color = lightInstance->lightComponent.common.color;
-    arrowParams.length = m_directionalLength;
+    arrowParams.length = directionalLength;
 
     addArrow(output, arrowParams);
 }
@@ -213,11 +215,13 @@ void DebugDrawer::addPointLight(DebugDrawData& output, const LightSystem& lightS
         return;
     }
 
+    int circleSegments = 24;
+
     WireSphereParams sphereParams{};
     sphereParams.center = ownerTransform.position;
     sphereParams.radius = lightInstance->lightComponent.parameters.point.radius;
     sphereParams.color = lightInstance->lightComponent.common.color;
-    sphereParams.segments = m_circleSegments;
+    sphereParams.segments = circleSegments;
 
     addWireSphere(output, sphereParams);
 }
@@ -246,13 +250,15 @@ void DebugDrawer::addSpotLight(DebugDrawData& output, const LightSystem& lightSy
         return;
     }
 
+    int circleSegments = 24;
+
     WireConeParams coneParams{};
     coneParams.apex = ownerTransform.position;
     coneParams.direction = ownerTransform.forward;
     coneParams.length = lightInstance->lightComponent.parameters.spot.radius;
     coneParams.outerAngleDegrees = lightInstance->lightComponent.parameters.spot.outerAngleDegrees;
     coneParams.color = lightInstance->lightComponent.common.color;
-    coneParams.segments = m_circleSegments;
+    coneParams.segments = circleSegments;
 
     addWireCone(output, coneParams);
 }

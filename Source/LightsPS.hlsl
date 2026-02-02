@@ -52,7 +52,9 @@ float3 PBRNeutralToneMapping(float3 color)
     const float startCompression = 0.8 - 0.04; 
 
     if (peak < startCompression)
+    {
         return color;
+    }
     const float d = 1. - startCompression;
     float newPeak = 1. - d * d / (peak + d - startCompression);
     color *= newPeak / peak;
@@ -102,7 +104,7 @@ float3 ComputeSpotLight(uint lightIndex, float3 worldPos, float3 normalVector, f
 {
     float3 spotDirection = normalize(spotLights[lightIndex].direction);
 
-    float3 toSurface = worldPos - spotLights[lightIndex].position; // light -> surface
+    float3 toSurface = worldPos - spotLights[lightIndex].position;
     float distanceProjected = dot(toSurface, spotDirection);
     if (distanceProjected <= 0.0f)
         return 0.0f;

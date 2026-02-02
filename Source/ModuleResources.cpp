@@ -68,9 +68,9 @@ ComPtr<ID3D12Resource> ModuleResources::createTextureFromFile(const wchar_t* fil
     DirectX::ScratchImage image;
     if (FAILED(LoadFromDDSFile(filePath, DDS_FLAGS_NONE, nullptr, image)))
     {
-        if (FAILED(LoadFromTGAFile(filePath, TGA_FLAGS_DEFAULT_SRGB, nullptr, image)))
+        if (FAILED(LoadFromTGAFile(filePath, nullptr, image)))
         {
-            if (FAILED(LoadFromWICFile(filePath, WIC_FLAGS_DEFAULT_SRGB, nullptr, image)))
+            if (FAILED(LoadFromWICFile(filePath, WIC_FLAGS_NONE, nullptr, image)))
                 return nullptr;
         }
     }
