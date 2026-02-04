@@ -10,6 +10,8 @@
 #include "ModuleRingBuffer.h"
 #include "DebugDrawPass.h"
 #include "LightDebugDraw.h"
+#include "GameObject.h"
+#include "LightComponent.h"
 #include <SimpleMath.h>
 
 static inline const float* asFloat3(const Vector3& v)
@@ -84,7 +86,7 @@ void ModulePipeline::preRender()
     memcpy(perFrameAllocation.cpu, &perFrame, sizeof(PerFrame));
     cmd->SetGraphicsRootConstantBufferView(1, perFrameAllocation.gpu);
 
-    GPULightsConstantBuffer gpuLights = lightSystem.packForGPUConstantBuffer();
+    GPULightsConstantBuffer gpuLights = lightSystem.packForGPUConstantBuffer(m_tempObjects);
 
     auto lightsAllocation = ring->allocBuffer((uint32_t)sizeof(GPULightsConstantBuffer));
     memcpy(lightsAllocation.cpu, &gpuLights, sizeof(GPULightsConstantBuffer));
@@ -197,24 +199,17 @@ void ModulePipeline::preRender()
     if (showAxis) dd::axisTriad(ddConvert(Matrix::Identity), 0.1f, 1.0f);
 
 
-    if (showDirectionalLightDebugDraw || showPointLightDebugDraw || showSpotLightDebugDraw)
+    if (m_lightGO)
     {
-        const LightInstance* inst = lightSystem.getLight(debugLightId);
-        if (inst)
+        LightComponent* lc = m_lightGO->GetLightComponent();
+        if (lc)
         {
-            bool draw = false;
-            if (inst->lightComponent.type == LightType::DIRECTIONAL) {
-                draw = showDirectionalLightDebugDraw;
-            }
-            if (inst->lightComponent.type == LightType::POINT) {
-                draw = showPointLightDebugDraw;
-            }
-            if (inst->lightComponent.type == LightType::SPOT) {
-                draw = showSpotLightDebugDraw;
-            }
+            LightType t = lc->getData().type;
+            bool draw = (t == LightType::DIRECTIONAL && showDirectionalLightDebugDraw) ||
+                (t == LightType::POINT && showPointLightDebugDraw) ||
+                (t == LightType::SPOT && showSpotLightDebugDraw);
 
-            if (draw)
-                LightDebugDraw::drawLight(lightSystem, debugLightId);
+            if (draw) LightDebugDraw::drawLight(*m_lightGO);
         }
     }
     
@@ -305,6 +300,11 @@ bool ModulePipeline::cleanUp() {
 
     delete debugDraw;
     debugDraw = nullptr;
+
+    for (GameObject* go : m_tempObjects) delete go;
+    m_tempObjects.clear();
+    m_lightGO = nullptr;
+    m_lightComp = nullptr;
     return true;
 }
 
@@ -346,17 +346,23 @@ void ModulePipeline::setSceneSize(int w, int h)
 
 void ModulePipeline::createProvisionalLights()
 {
-    debugLightOwner = lightSystem.createOwner({ Vector3(0, 2, 0), Vector3::Forward });
+    m_lightGO = new GameObject(1);
+    m_lightGO->SetName((char*)"DebugLight");
 
-    LightCommon common{};
-    common.enabled = true;
-    common.color = Vector3(1, 0.9f, 0.7f);
-    common.intensity = 20.0f;
+    m_lightGO->GetTransform()->setPosition(new Vector3(0, 2, 0));
 
-    PointLightParameters pointParams{};
-    pointParams.radius = 8.0f;
+    m_lightComp = new LightComponent();
+    m_lightGO->AddComponent(m_lightComp);
 
-    debugLightId = lightSystem.createPointLight(debugLightOwner, common, pointParams);
+    LightData& d = m_lightComp->editData();
+    d.common.enabled = true;
+    d.common.color = Vector3(1, 0.9f, 0.7f);
+    d.common.intensity = 20.0f;
+    d.type = LightType::POINT;
+    d.parameters.point.radius = 8.0f;
+    m_lightComp->sanitize();
+
+    m_tempObjects.push_back(m_lightGO);
 
     lightSystem.setAmbient(Vector3(0.1f, 0.1f, 0.1f), 1.0f);
 }

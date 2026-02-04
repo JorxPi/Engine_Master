@@ -9,6 +9,9 @@
 #include <thread>
 #include "ModuleShaderDescriptors.h"
 #include "ModuleSampler.h"
+#include "GameObject.h"
+#include "Transform.h"
+#include "LightComponent.h"
 #include <imgui_internal.h>
 
 ModuleEditor::ModuleEditor(HWND windowHandle)
@@ -689,12 +692,31 @@ void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEdi
     ImGui::End();
 }
 
+static Matrix BuildTRS(const Transform& tr)
+{
+    const Vector3 pos = *tr.getPosition();
+    const Vector3 scl = *tr.getScale();
+    const Quaternion rot = *tr.getRotation();
+
+    return Matrix::CreateScale(scl) * Matrix::CreateFromQuaternion(rot) * Matrix::CreateTranslation(pos);
+}
+
+static void ApplyTRS(Transform& tr, const Matrix& world)
+{
+    Matrix m = world;
+
+    Vector3 scl, pos;
+    Quaternion rot;
+    m.Decompose(scl, rot, pos);
+
+    tr.setPosition(&pos);
+    tr.setRotation(&rot);
+    tr.setScale(&scl);
+}
+
 void ModuleEditor::drawLightsWindow(ModulePipeline* pipeline)
 {
-    if (!showLightsWindow)
-    {
-        return;
-    }
+    if (!showLightsWindow) return;
 
     if (!ImGui::Begin("Lights", &showLightsWindow))
     {
@@ -702,175 +724,176 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipeline)
         return;
     }
 
-    if (pipeline == nullptr)
+    if (!pipeline)
     {
         ImGui::TextDisabled("No pipeline");
         ImGui::End();
         return;
     }
 
-    LightSystem& lightSystem = pipeline->editLightSystem();
-
-    // Ambient
+    // Ambient (shouldn't be here, but for now I put it until we decide a place or what to do)
     {
+        LightSystem& lightSystem = pipeline->editLightSystem();
+
         Vector3 ambientColor = lightSystem.getAmbientColor();
         float ambientIntensity = lightSystem.getAmbientIntensity();
 
-        float ambientColorRgb[3] = { ambientColor.x, ambientColor.y, ambientColor.z };
-        if (ImGui::ColorEdit3("Ambient Color", ambientColorRgb))
-        {
-            ambientColor = Vector3(ambientColorRgb[0], ambientColorRgb[1], ambientColorRgb[2]);
-        }
+        float rgb[3] = { ambientColor.x, ambientColor.y, ambientColor.z };
+        if (ImGui::ColorEdit3("Ambient Color", rgb))
+            ambientColor = Vector3(rgb[0], rgb[1], rgb[2]);
 
-        static constexpr float AMBIENT_INTENSITY_DRAG_SPEED = 0.05f;
-        static constexpr float AMBIENT_INTENSITY_MIN = 0.0f;
-        static constexpr float AMBIENT_INTENSITY_MAX = 10.0f;
-
-        ImGui::DragFloat(
-            "Ambient Intensity",
-            &ambientIntensity,
-            AMBIENT_INTENSITY_DRAG_SPEED,
-            AMBIENT_INTENSITY_MIN,
-            AMBIENT_INTENSITY_MAX
-        );
+        ImGui::DragFloat("Ambient Intensity", &ambientIntensity, 0.05f, 0.0f, 10.0f);
 
         lightSystem.setAmbient(ambientColor, ambientIntensity);
     }
 
     ImGui::Separator();
 
-    auto editVector3 = [](const char* label, Vector3& vector, float speed)
-        {
-            return ImGui::DragFloat3(label, &vector.x, speed);
-        };
-
-    const LightId lightId = pipeline->getSingleLightId();
-
-    ManualTransform transform{};
-    const bool hasTransform = lightSystem.getOwnerTransformFromLight(lightId, transform);
-
-    LightComponent lightComponent{};
-    if (!lightSystem.getLightComponent(lightId, lightComponent))
+    // Light GO from pipeline (temporal until we got the scene)
+    GameObject* lightGO = pipeline->getSingleLightGO();
+    if (!lightGO)
     {
-        ImGui::TextDisabled("No light instance found.");
+        ImGui::TextDisabled("No light GameObject.");
         ImGui::End();
         return;
     }
 
-    LightCommon& common = lightComponent.common;
-
-    bool lightChanged = false;
-
-    // Type selector
+    Transform* tr = lightGO->GetTransform();
+    if (!tr)
     {
-        static constexpr const char* TYPE_NAMES[] = { "Directional", "Point", "Spot" };
-        static constexpr LightType TYPE_VALUES[] = { LightType::DIRECTIONAL, LightType::POINT, LightType::SPOT };
-
-        int currentTypeIndex = 0;
-        for (int i = 0; i < IM_ARRAYSIZE(TYPE_VALUES); ++i)
-        {
-            if (lightComponent.type == TYPE_VALUES[i])
-            {
-                currentTypeIndex = i;
-                break;
-            }
-        }
-
-        if (ImGui::Combo("Type", &currentTypeIndex, TYPE_NAMES, IM_ARRAYSIZE(TYPE_NAMES)))
-        {
-            lightComponent.type = TYPE_VALUES[currentTypeIndex];
-            lightChanged = true;
-
-            switch (lightComponent.type)
-            {
-            case LightType::DIRECTIONAL:
-            {
-                gizmoTarget = GizmoTarget::DirectionalLight;
-                gizmoOp = ImGuizmo::ROTATE;
-                break;
-            }
-
-            case LightType::POINT:
-            {
-                gizmoTarget = GizmoTarget::PointLight;
-                gizmoOp = ImGuizmo::TRANSLATE;
-                break;
-            }
-
-            case LightType::SPOT:
-            {
-                gizmoTarget = GizmoTarget::SpotLight;
-                gizmoOp = ImGuizmo::ROTATE;
-                break;
-            }
-
-            default:
-            {
-                break;
-            }
-            }
-        }
+        ImGui::TextDisabled("Light has no Transform.");
+        ImGui::End();
+        return;
     }
 
-    // Shared controls
+    LightComponent* lc = lightGO->GetLightComponent();
+    if (!lc)
     {
-        if (ImGui::Checkbox("Enabled", &common.enabled))
-        {
-            lightChanged = true;
-        }
+        ImGui::TextDisabled("Light has no LightComponent.");
+        ImGui::End();
+        return;
+    }
 
-        float colorRgb[3] = { common.color.x, common.color.y, common.color.z };
-        if (ImGui::ColorEdit3("Color", colorRgb))
-        {
-            common.color = Vector3(colorRgb[0], colorRgb[1], colorRgb[2]);
-            lightChanged = true;
-        }
+    LightData& data = lc->editData();
+    lc->sanitize();
 
-        static constexpr float INTENSITY_DRAG_SPEED = 0.1f;
-        static constexpr float INTENSITY_MIN = 0.0f;
-        static constexpr float INTENSITY_MAX = 500.0f;
+    bool lightChanged = false;
+    bool transformChanged = false;
 
-        if (ImGui::DragFloat("Intensity", &common.intensity, INTENSITY_DRAG_SPEED, INTENSITY_MIN, INTENSITY_MAX))
+    auto editVec3 = [](const char* label, Vector3& v, float speed)
         {
-            lightChanged = true;
+            return ImGui::DragFloat3(label, &v.x, speed);
+        };
+
+    // position - rotation - scale (transform component)
+
+    ImGui::Text("Transform");
+
+    {
+        Matrix world = BuildTRS(*tr);
+
+        float t[3] = { 0,0,0 };
+        float r[3] = { 0,0,0 };
+        float s[3] = { 1,1,1 };
+
+        ImGuizmo::DecomposeMatrixToComponents((float*)&world, t, r, s);
+
+        bool changed = false;
+        changed |= ImGui::DragFloat3("Position##Transform", t, 0.05f);
+        changed |= ImGui::DragFloat3("Rotation (deg)##Transform", r, 0.2f);
+        changed |= ImGui::DragFloat3("Scale##Transform", s, 0.02f);
+
+        if (changed)
+        {
+            ImGuizmo::RecomposeMatrixFromComponents(t, r, s, (float*)&world);
+            ApplyTRS(*tr, world);
+            transformChanged = true;
         }
     }
 
     ImGui::Separator();
 
-    // Per-type transform + params
-    switch (lightComponent.type)
+
+    ImGui::Text("Light");
+
+    // Light type selector (part of light component)
+    {
+        static const char* TYPE_NAMES[] = { "Directional", "Point", "Spot" };
+        static const LightType TYPE_VALUES[] = { LightType::DIRECTIONAL, LightType::POINT, LightType::SPOT };
+
+        int currentTypeIndex = 0;
+        for (int i = 0; i < IM_ARRAYSIZE(TYPE_VALUES); ++i)
+        {
+            if (data.type == TYPE_VALUES[i]) { currentTypeIndex = i; break; }
+        }
+
+        if (ImGui::Combo("Type", &currentTypeIndex, TYPE_NAMES, IM_ARRAYSIZE(TYPE_NAMES)))
+        {
+            const LightType newType = TYPE_VALUES[currentTypeIndex];
+
+            if (newType == LightType::DIRECTIONAL) lc->setTypeDirectional();
+            if (newType == LightType::POINT)       lc->setTypePoint(data.parameters.point.radius);
+            if (newType == LightType::SPOT)        lc->setTypeSpot(
+                data.parameters.spot.radius,
+                data.parameters.spot.innerAngleDegrees,
+                data.parameters.spot.outerAngleDegrees);
+
+            lightChanged = true;
+
+            switch (newType)
+            {
+            case LightType::DIRECTIONAL:
+                gizmoTarget = GizmoTarget::DirectionalLight;
+                gizmoOp = ImGuizmo::ROTATE;
+                break;
+            case LightType::POINT:
+                gizmoTarget = GizmoTarget::PointLight;
+                gizmoOp = ImGuizmo::TRANSLATE;
+                break;
+            case LightType::SPOT:
+                gizmoTarget = GizmoTarget::SpotLight;
+                gizmoOp = ImGuizmo::ROTATE;
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    // Shared light controls (part of the light component)
+
+    {
+        if (ImGui::Checkbox("Enabled", &data.common.enabled))
+            lightChanged = true;
+
+        float rgb[3] = { data.common.color.x, data.common.color.y, data.common.color.z };
+        if (ImGui::ColorEdit3("Color", rgb))
+        {
+            data.common.color = Vector3(rgb[0], rgb[1], rgb[2]);
+            lightChanged = true;
+        }
+
+        if (ImGui::DragFloat("Intensity", &data.common.intensity, 0.1f, 0.0f, 500.0f))
+            lightChanged = true;
+    }
+
+    // Type-specific parameters + Debug toggles + Gizmo button
+
+    switch (data.type)
     {
     case LightType::DIRECTIONAL:
     {
         ImGui::Text("Directional");
 
-        if (hasTransform)
+        if (ImGui::SmallButton("Gizmo##Directional"))
         {
-            static constexpr float DIRECTION_DRAG_SPEED = 0.01f;
-
-            if (editVector3("Direction (forward)", transform.forward, DIRECTION_DRAG_SPEED))
-            {
-                lightSystem.setOwnerForwardFromLight(lightId, transform.forward);
-            }
-
-            if (ImGui::SmallButton("Gizmo##Directional"))
-            {
-                gizmoTarget = GizmoTarget::DirectionalLight;
-                hasSelection = true;
-                gizmoOp = ImGuizmo::ROTATE;
-            }
-
-            static constexpr float SAME_LINE_OFFSET_X = 0.0f;
-            static constexpr float SAME_LINE_SPACING = 12.0f;
-
-            ImGui::SameLine(SAME_LINE_OFFSET_X, SAME_LINE_SPACING);
-            ImGui::Checkbox("Directional Debug", &pipeline->editShowDirectionalLightDebugDraw());
+            gizmoTarget = GizmoTarget::DirectionalLight;
+            hasSelection = true;
+            gizmoOp = ImGuizmo::ROTATE;
         }
-        else
-        {
-            ImGui::TextDisabled("Owner transform not found.");
-        }
+
+        ImGui::SameLine(0.0f, 12.0f);
+        ImGui::Checkbox("Directional Debug", &pipeline->editShowDirectionalLightDebugDraw());
 
         break;
     }
@@ -879,41 +902,18 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipeline)
     {
         ImGui::Text("Point");
 
-        if (hasTransform)
+        if (ImGui::SmallButton("Gizmo##Point"))
         {
-            static constexpr float POSITION_DRAG_SPEED = 0.05f;
-
-            if (editVector3("Position", transform.position, POSITION_DRAG_SPEED))
-            {
-                lightSystem.setOwnerPositionFromLight(lightId, transform.position);
-            }
-
-            if (ImGui::SmallButton("Gizmo##Point"))
-            {
-                gizmoTarget = GizmoTarget::PointLight;
-                hasSelection = true;
-                gizmoOp = ImGuizmo::TRANSLATE;
-            }
-
-            static constexpr float SAME_LINE_OFFSET_X = 0.0f;
-            static constexpr float SAME_LINE_SPACING = 12.0f;
-
-            ImGui::SameLine(SAME_LINE_OFFSET_X, SAME_LINE_SPACING);
-            ImGui::Checkbox("Point Debug", &pipeline->editShowPointLightDebugDraw());
-        }
-        else
-        {
-            ImGui::TextDisabled("Owner transform not found.");
+            gizmoTarget = GizmoTarget::PointLight;
+            hasSelection = true;
+            gizmoOp = ImGuizmo::TRANSLATE;
         }
 
-        static constexpr float RADIUS_DRAG_SPEED = 0.1f;
-        static constexpr float RADIUS_MIN = 0.0f;
-        static constexpr float RADIUS_MAX = 200.0f;
+        ImGui::SameLine(0.0f, 12.0f);
+        ImGui::Checkbox("Point Debug", &pipeline->editShowPointLightDebugDraw());
 
-        if (ImGui::DragFloat("Radius", &lightComponent.parameters.point.radius, RADIUS_DRAG_SPEED, RADIUS_MIN, RADIUS_MAX))
-        {
+        if (ImGui::DragFloat("Radius", &data.parameters.point.radius, 0.1f, 0.0f, 200.0f))
             lightChanged = true;
-        }
 
         break;
     }
@@ -922,78 +922,39 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipeline)
     {
         ImGui::Text("Spot");
 
-        if (hasTransform)
+        if (ImGui::SmallButton("Gizmo##Spot"))
         {
-            static constexpr float POSITION_DRAG_SPEED = 0.05f;
-            static constexpr float DIRECTION_DRAG_SPEED = 0.01f;
-
-            bool transformChanged = false;
-            transformChanged |= editVector3("Position", transform.position, POSITION_DRAG_SPEED);
-            transformChanged |= editVector3("Direction", transform.forward, DIRECTION_DRAG_SPEED);
-
-            if (transformChanged)
-            {
-                lightSystem.setOwnerTransformFromLight(lightId, transform);
-            }
-
-            if (ImGui::SmallButton("Gizmo##Spot"))
-            {
-                gizmoTarget = GizmoTarget::SpotLight;
-                hasSelection = true;
-                gizmoOp = ImGuizmo::ROTATE;
-            }
-
-            static constexpr float SAME_LINE_OFFSET_X = 0.0f;
-            static constexpr float SAME_LINE_SPACING = 12.0f;
-
-            ImGui::SameLine(SAME_LINE_OFFSET_X, SAME_LINE_SPACING);
-            ImGui::Checkbox("Spot Debug", &pipeline->editShowSpotLightDebugDraw());
-        }
-        else
-        {
-            ImGui::TextDisabled("Owner transform not found.");
+            gizmoTarget = GizmoTarget::SpotLight;
+            hasSelection = true;
+            gizmoOp = ImGuizmo::ROTATE;
         }
 
-        static constexpr float SPOT_RADIUS_DRAG_SPEED = 0.1f;
-        static constexpr float SPOT_RADIUS_MIN = 0.0f;
-        static constexpr float SPOT_RADIUS_MAX = 200.0f;
+        ImGui::SameLine(0.0f, 12.0f);
+        ImGui::Checkbox("Spot Debug", &pipeline->editShowSpotLightDebugDraw());
 
-        static constexpr float SPOT_ANGLE_DRAG_SPEED = 0.1f;
-        static constexpr float SPOT_ANGLE_MIN = 0.0f;
-        static constexpr float SPOT_ANGLE_MAX = 179.0f;
-
-        if (ImGui::DragFloat("Radius##Spot", &lightComponent.parameters.spot.radius, SPOT_RADIUS_DRAG_SPEED, SPOT_RADIUS_MIN, SPOT_RADIUS_MAX))
-        {
+        if (ImGui::DragFloat("Radius##Spot", &data.parameters.spot.radius, 0.1f, 0.0f, 200.0f))
             lightChanged = true;
-        }
 
-        if (ImGui::DragFloat("Inner Angle##Spot", &lightComponent.parameters.spot.innerAngleDegrees, SPOT_ANGLE_DRAG_SPEED, SPOT_ANGLE_MIN, SPOT_ANGLE_MAX))
-        {
+        if (ImGui::DragFloat("Inner Angle##Spot", &data.parameters.spot.innerAngleDegrees, 0.1f, 0.0f, 179.0f))
             lightChanged = true;
-        }
 
-        if (ImGui::DragFloat("Outer Angle##Spot", &lightComponent.parameters.spot.outerAngleDegrees, SPOT_ANGLE_DRAG_SPEED, SPOT_ANGLE_MIN, SPOT_ANGLE_MAX))
-        {
+        if (ImGui::DragFloat("Outer Angle##Spot", &data.parameters.spot.outerAngleDegrees, 0.1f, 0.0f, 179.0f))
             lightChanged = true;
-        }
 
         break;
     }
 
     default:
-    {
         ImGui::TextDisabled("Unknown light type.");
         break;
     }
-    }
 
     if (lightChanged)
-    {
-        lightSystem.setLightComponent(lightId, lightComponent);
-    }
+        lc->sanitize();
 
     ImGui::End();
 }
+
 
 
 void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
@@ -1086,16 +1047,13 @@ void ModuleEditor::drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam)
     }
 
     // LIGHT gizmo
-    LightSystem& lightSystem = pipe->editLightSystem();
-    const LightId lightId = pipe->getSingleLightId();
+    GameObject* lightGO = pipe->getSingleLightGO();
+    if (!lightGO) return;
 
-    ManualTransform transform{};
-    if (!lightSystem.getOwnerTransformFromLight(lightId, transform))
-    {
-        return;
-    }
+    Transform* tr = lightGO->GetTransform();
+    if (!tr) return;
 
-    Matrix lightMatrix = MakeLightMatrix(transform.position, transform.forward);
+    Matrix lightMatrix = BuildTRS(*tr);
 
     ImGuizmo::Manipulate(
         reinterpret_cast<const float*>(&view),
@@ -1107,23 +1065,7 @@ void ModuleEditor::drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam)
 
     if (ImGuizmo::IsUsing())
     {
-        ManualTransform updatedTransform = transform;
-
-        updatedTransform.position = lightMatrix.Translation();
-
-        Vector3 newForward = Vector3::TransformNormal(Vector3::Forward, lightMatrix);
-        if (newForward.LengthSquared() > 1e-8f)
-        {
-            newForward.Normalize();
-        }
-        else
-        {
-            newForward = Vector3::Forward;
-        }
-
-        updatedTransform.forward = newForward;
-
-        lightSystem.setOwnerTransformFromLight(lightId, updatedTransform);
+        ApplyTRS(*tr, lightMatrix);
     }
 }
 

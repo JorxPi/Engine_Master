@@ -6,9 +6,6 @@
 
 using DirectX::SimpleMath::Vector3;
 
-using LightId = uint32_t;
-using OwnerId = uint32_t;
-
 struct LightDefaults
 {
     static constexpr float DEFAULT_INTENSITY = 1.0f;
@@ -86,23 +83,11 @@ struct LightParameters
     }
 };
 
-struct LightComponent
+struct LightData
 {
     LightCommon common{};
     LightType type = LightType::DIRECTIONAL;
     LightParameters parameters = LightParameters::makeDirectional();
-};
-
-struct ManualTransform
-{
-    Vector3 position = Vector3::Zero;
-    Vector3 forward = Vector3::Forward;
-};
-
-struct LightInstance
-{
-    OwnerId ownerId = 0;
-    LightComponent lightComponent;
 };
 
 struct GPUDirectionalLight

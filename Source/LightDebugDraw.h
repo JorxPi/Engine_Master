@@ -4,5 +4,5 @@
 
 namespace LightDebugDraw
 {
-    void drawLight(const LightSystem& lightSystem, LightId lightId, bool depthEnabled = true);
+	void drawLight(const GameObject& go, bool depthEnabled = true);
 }

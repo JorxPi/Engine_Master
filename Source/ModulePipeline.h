@@ -5,7 +5,9 @@
 #include "PhongData.h"
 #include "RenderTexture.h"
 #include "LightSystem.h"
-#include "DebugDrawer.h"
+
+class GameObject;
+class LightComponent;
 
 class ModulePipeline : public Module
 {
@@ -41,12 +43,11 @@ public:
 
     LightSystem& editLightSystem() { return lightSystem; }
 
-    OwnerId getSingleLightOwner() const { return debugLightOwner; }
-    LightId getSingleLightId() const { return debugLightId; }
-
     bool& editShowDirectionalLightDebugDraw() { return showDirectionalLightDebugDraw; }
     bool& editShowPointLightDebugDraw() { return showPointLightDebugDraw; }
     bool& editShowSpotLightDebugDraw() { return showSpotLightDebugDraw; }
+
+    GameObject* getSingleLightGO() { return m_lightGO; }
 
 private:
     bool createRootSignature();
@@ -79,7 +80,10 @@ private:
     bool showSpotLightDebugDraw = true;
 
     LightSystem lightSystem;
-    OwnerId debugLightOwner{};
-    LightId debugLightId{};
+
+    //tempObjects is the temporary scene
+    std::vector<GameObject*> m_tempObjects;
+    GameObject* m_lightGO = nullptr;
+    LightComponent* m_lightComp = nullptr;
 
 };

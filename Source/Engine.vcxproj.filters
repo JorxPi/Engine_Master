@@ -72,11 +72,17 @@
     <ClCompile Include="LightSystem.cpp">
       <Filter>Lights</Filter>
     </ClCompile>
-    <ClCompile Include="DebugDrawer.cpp">
-      <Filter>Lights</Filter>
-    </ClCompile>
     <ClCompile Include="LightDebugDraw.cpp">
       <Filter>Lights</Filter>
+    </ClCompile>
+    <ClCompile Include="GameObject.cpp">
+      <Filter>GameObject</Filter>
+    </ClCompile>
+    <ClCompile Include="Transform.cpp">
+      <Filter>GameObject</Filter>
+    </ClCompile>
+    <ClCompile Include="LightComponent.cpp">
+      <Filter>GameObject</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -171,11 +177,20 @@
     <ClInclude Include="LightSystem.h">
       <Filter>Lights</Filter>
     </ClInclude>
-    <ClInclude Include="DebugDrawer.h">
-      <Filter>Lights</Filter>
-    </ClInclude>
     <ClInclude Include="LightDebugDraw.h">
       <Filter>Lights</Filter>
+    </ClInclude>
+    <ClInclude Include="GameObject.h">
+      <Filter>GameObject</Filter>
+    </ClInclude>
+    <ClInclude Include="Component.h">
+      <Filter>GameObject</Filter>
+    </ClInclude>
+    <ClInclude Include="Transform.h">
+      <Filter>GameObject</Filter>
+    </ClInclude>
+    <ClInclude Include="LightComponent.h">
+      <Filter>GameObject</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -216,6 +231,9 @@
     </Filter>
     <Filter Include="Lights">
       <UniqueIdentifier>{bab1149e-7b39-4827-b48f-87245d4cfd5b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameObject">
+      <UniqueIdentifier>{e4dce01d-f552-4f7a-9b4c-dffbdf3df372}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
