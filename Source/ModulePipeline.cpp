@@ -201,15 +201,13 @@ void ModulePipeline::preRender()
 
     if (m_lightGO)
     {
-        LightComponent* lc = m_lightGO->GetLightComponent();
-        if (lc)
+        LightComponent* lightComponent = m_lightGO->GetLightComponent();
+        if (lightComponent)
         {
-            LightType t = lc->getData().type;
-            bool draw = (t == LightType::DIRECTIONAL && showDirectionalLightDebugDraw) ||
-                (t == LightType::POINT && showPointLightDebugDraw) ||
-                (t == LightType::SPOT && showSpotLightDebugDraw);
+            LightType lightType = lightComponent->getData().type;
+            bool draw = (lightType == LightType::DIRECTIONAL && showDirectionalLightDebugDraw) || (lightType == LightType::POINT && showPointLightDebugDraw) || (lightType == LightType::SPOT && showSpotLightDebugDraw);
 
-            if (draw) LightDebugDraw::drawLight(*m_lightGO);
+            if (draw) LightDebugDraw::drawLightWithDepth(*m_lightGO);
         }
     }
     
@@ -354,12 +352,12 @@ void ModulePipeline::createProvisionalLights()
     m_lightComp = new LightComponent();
     m_lightGO->AddComponent(m_lightComp);
 
-    LightData& d = m_lightComp->editData();
-    d.common.enabled = true;
-    d.common.color = Vector3(1, 0.9f, 0.7f);
-    d.common.intensity = 20.0f;
-    d.type = LightType::POINT;
-    d.parameters.point.radius = 8.0f;
+    LightData& data = m_lightComp->editData();
+    data.common.enabled = true;
+    data.common.color = Vector3(1, 0.9f, 0.7f);
+    data.common.intensity = 20.0f;
+    data.type = LightType::POINT;
+    data.parameters.point.radius = 8.0f;
     m_lightComp->sanitize();
 
     m_tempObjects.push_back(m_lightGO);

@@ -1,22 +1,44 @@
 #include "Globals.h"
 #include "LightComponent.h"
+
 #include <algorithm>
 #include <cmath>
 
 namespace
 {
     constexpr float SPOT_MAX_ANGLE_DEGREES = 89.9f;
-    constexpr float SPOT_MIN_DELTA = 0.001f;
+    constexpr float SPOT_MIN_ANGLE_DELTA_DEGREES = 0.001f;
+
+    static void sanitizeSpotAngles(float& innerAngleDegrees, float& outerAngleDegrees)
+    {
+        innerAngleDegrees = std::clamp(innerAngleDegrees, 0.0f, SPOT_MAX_ANGLE_DEGREES);
+        outerAngleDegrees = std::clamp(outerAngleDegrees, 0.0f, SPOT_MAX_ANGLE_DEGREES);
+
+        if (innerAngleDegrees > outerAngleDegrees)
+        {
+            std::swap(innerAngleDegrees, outerAngleDegrees);
+        }
+
+        if (std::abs(innerAngleDegrees - outerAngleDegrees) < SPOT_MIN_ANGLE_DELTA_DEGREES)
+        {
+            outerAngleDegrees = std::min(SPOT_MAX_ANGLE_DEGREES, innerAngleDegrees + SPOT_MIN_ANGLE_DELTA_DEGREES);
+        }
+    }
 }
 
-static void sanitizeSpotAngles(float& innerDeg, float& outerDeg)
+LightComponent::LightComponent()
 {
-    innerDeg = std::clamp(innerDeg, 0.0f, SPOT_MAX_ANGLE_DEGREES);
-    outerDeg = std::clamp(outerDeg, 0.0f, SPOT_MAX_ANGLE_DEGREES);
+    m_type = ComponentType::LIGHT;
+}
 
-    if (innerDeg > outerDeg) std::swap(innerDeg, outerDeg);
-    if (std::abs(innerDeg - outerDeg) < SPOT_MIN_DELTA)
-        outerDeg = std::min(SPOT_MAX_ANGLE_DEGREES, innerDeg + SPOT_MIN_DELTA);
+const LightData& LightComponent::getData() const
+{
+    return m_data;
+}
+
+LightData& LightComponent::editData()
+{
+    return m_data;
 }
 
 void LightComponent::setTypeDirectional()
@@ -33,10 +55,10 @@ void LightComponent::setTypePoint(float radius)
     sanitize();
 }
 
-void LightComponent::setTypeSpot(float radius, float innerDeg, float outerDeg)
+void LightComponent::setTypeSpot(float radius, float innerAngleDegrees, float outerAngleDegrees)
 {
     m_data.type = LightType::SPOT;
-    m_data.parameters = LightParameters::makeSpot(radius, innerDeg, outerDeg);
+    m_data.parameters = LightParameters::makeSpot(radius, innerAngleDegrees, outerAngleDegrees);
     sanitize();
 }
 
@@ -44,20 +66,18 @@ void LightComponent::sanitize()
 {
     m_data.common.intensity = std::max(0.0f, m_data.common.intensity);
 
-    switch (m_data.type)
+    if (m_data.type == LightType::POINT)
     {
-    case LightType::POINT:
         m_data.parameters.point.radius = std::max(0.0f, m_data.parameters.point.radius);
-        break;
+        return;
+    }
 
-    case LightType::SPOT:
+    if (m_data.type == LightType::SPOT)
+    {
         m_data.parameters.spot.radius = std::max(0.0f, m_data.parameters.spot.radius);
-        sanitizeSpotAngles(m_data.parameters.spot.innerAngleDegrees,
+        sanitizeSpotAngles(
+            m_data.parameters.spot.innerAngleDegrees,
             m_data.parameters.spot.outerAngleDegrees);
-        break;
-
-    case LightType::DIRECTIONAL:
-    default:
-        break;
+        return;
     }
 }

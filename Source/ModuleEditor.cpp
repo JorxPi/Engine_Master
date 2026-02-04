@@ -692,6 +692,8 @@ void ModuleEditor::drawPhongControlsWindow(ModulePipeline* pipe, ModuleCameraEdi
     ImGui::End();
 }
 
+////////////
+
 static Matrix BuildTRS(const Transform& tr)
 {
     const Vector3 pos = *tr.getPosition();
@@ -955,48 +957,6 @@ void ModuleEditor::drawLightsWindow(ModulePipeline* pipeline)
     ImGui::End();
 }
 
-
-
-void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
-    ImGuiIO& io = ImGui::GetIO();
-
-    if ((sceneHovered || sceneFocused) && ImGui::IsKeyPressed(ImGuiKey_F) && !io.WantTextInput && !ImGuizmo::IsUsing())
-    {
-        if (pipe && cam)
-        {
-            Model& model = pipe->getModel();
-
-            Vector3 worldPivot = model.getModelMatrix().Translation();
-
-            cam->focusOnGeometry(worldPivot);
-        }
-    }
-}
-
-void ModuleEditor::updateGizmoHotkeys()
-{
-    if (!(sceneHovered || sceneFocused))
-        return;
-
-    const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
-    if (rmbDown) return;
-
-    ImGuiIO& io = ImGui::GetIO();
-
-    if (io.WantTextInput)
-        return;
-
-    if (ImGui::IsAnyItemActive())
-        return;
-
-    if (ImGuizmo::IsUsing())
-        return;
-
-    if (ImGui::IsKeyPressed(ImGuiKey_W)) { gizmoOp = ImGuizmo::TRANSLATE; hasSelection = true; }
-    if (ImGui::IsKeyPressed(ImGuiKey_E)) { gizmoOp = ImGuizmo::ROTATE;    hasSelection = true; }
-    if (ImGui::IsKeyPressed(ImGuiKey_R)) { gizmoOp = ImGuizmo::SCALE;     hasSelection = true; }
-}
-
 static Vector3 SafeUpFromForward(const Vector3& fwd)
 {
     Vector3 f = fwd; f.Normalize();
@@ -1067,6 +1027,50 @@ void ModuleEditor::drawGizmo(ModulePipeline* pipe, ModuleCameraEditor* cam)
     {
         ApplyTRS(*tr, lightMatrix);
     }
+}
+
+////
+
+
+
+void ModuleEditor::focusOnModel(ModulePipeline* pipe, ModuleCameraEditor* cam) {
+    ImGuiIO& io = ImGui::GetIO();
+
+    if ((sceneHovered || sceneFocused) && ImGui::IsKeyPressed(ImGuiKey_F) && !io.WantTextInput && !ImGuizmo::IsUsing())
+    {
+        if (pipe && cam)
+        {
+            Model& model = pipe->getModel();
+
+            Vector3 worldPivot = model.getModelMatrix().Translation();
+
+            cam->focusOnGeometry(worldPivot);
+        }
+    }
+}
+
+void ModuleEditor::updateGizmoHotkeys()
+{
+    if (!(sceneHovered || sceneFocused))
+        return;
+
+    const bool rmbDown = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+    if (rmbDown) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+
+    if (io.WantTextInput)
+        return;
+
+    if (ImGui::IsAnyItemActive())
+        return;
+
+    if (ImGuizmo::IsUsing())
+        return;
+
+    if (ImGui::IsKeyPressed(ImGuiKey_W)) { gizmoOp = ImGuizmo::TRANSLATE; hasSelection = true; }
+    if (ImGui::IsKeyPressed(ImGuiKey_E)) { gizmoOp = ImGuizmo::ROTATE;    hasSelection = true; }
+    if (ImGui::IsKeyPressed(ImGuiKey_R)) { gizmoOp = ImGuizmo::SCALE;     hasSelection = true; }
 }
 
 void ModuleEditor::updateGizmoSelection(ModulePipeline* pipe)

@@ -1,58 +1,99 @@
 #include "Globals.h"
 #include "LightDebugDraw.h"
+
 #include "GameObject.h"
 #include "Transform.h"
 #include "LightComponent.h"
+
 #include <algorithm>
 
-static inline const float* asFloat3(const Vector3& v) { return &v.x; }
-
-namespace LightDebugDraw
+namespace
 {
-    void drawLight(const GameObject& go, bool depthEnabled)
+    constexpr float DIRECTIONAL_ARROW_LENGTH = 2.0f;
+    constexpr float DIRECTIONAL_ARROW_HEAD_LENGTH = 0.15f;
+    constexpr float SPOT_DEBUG_MAX_ANGLE_DEGREES = 89.0f;
+
+    static inline const float* asFloat3(const Vector3& vector)
     {
-        const LightComponent* lc = go.GetLightComponent();
-        if (!lc) return;
+        return &vector.x;
+    }
 
-        const LightData& data = lc->getData();
-        if (!data.common.enabled) return;
+    static void drawLight(const GameObject& gameObject, bool depthEnabled)
+    {
+        const LightComponent* lightComponent = gameObject.GetLightComponent();
+        if (lightComponent == nullptr)
+        {
+            return;
+        }
 
-        const Transform* tr = go.GetTransform();
-        if (!tr) return;
+        const LightData& lightData = lightComponent->getData();
+        if (!lightData.common.enabled)
+        {
+            return;
+        }
 
-        const Vector3 pos = *tr->getPosition();
-        const Vector3 fwd = tr->getForward();
-        const Vector3 color = data.common.color;
+        const Transform* transform = gameObject.GetTransform();
+        if (transform == nullptr)
+        {
+            return;
+        }
 
-        switch (data.type)
+        const Vector3 position = *transform->getPosition();
+        const Vector3 forward = transform->getForward();
+        const Vector3 color = lightData.common.color;
+
+        switch (lightData.type)
         {
         case LightType::DIRECTIONAL:
         {
-            Vector3 end = pos + fwd * 2.0f;
-            dd::arrow(asFloat3(pos), asFloat3(end), asFloat3(color), 0.15f, 0, depthEnabled);
+            const Vector3 endPosition = position + forward * DIRECTIONAL_ARROW_LENGTH;
+            dd::arrow(asFloat3(position), asFloat3(endPosition), asFloat3(color), DIRECTIONAL_ARROW_HEAD_LENGTH, 0, depthEnabled);
             break;
         }
+
         case LightType::POINT:
         {
-            dd::sphere(asFloat3(pos), asFloat3(color), data.parameters.point.radius, 0, depthEnabled);
+            dd::sphere(asFloat3(position), asFloat3(color), lightData.parameters.point.radius, 0, depthEnabled);
             break;
         }
+
         case LightType::SPOT:
         {
-            float length = data.parameters.spot.radius;
-            float outerRad = XMConvertToRadians(std::clamp(data.parameters.spot.outerAngleDegrees, 0.0f, 89.0f));
-            float innerRad = XMConvertToRadians(std::clamp(data.parameters.spot.innerAngleDegrees, 0.0f, 89.0f));
+            const float length = lightData.parameters.spot.radius;
 
-            Vector3 dir = fwd * length;
-            float outerBase = std::tan(outerRad) * length;
-            float innerBase = std::tan(innerRad) * length;
+            const float clampedOuterAngleDegrees = std::clamp(lightData.parameters.spot.outerAngleDegrees, 0.0f, SPOT_DEBUG_MAX_ANGLE_DEGREES);
+            const float clampedInnerAngleDegrees = std::clamp(lightData.parameters.spot.innerAngleDegrees, 0.0f, SPOT_DEBUG_MAX_ANGLE_DEGREES);
 
-            dd::cone(asFloat3(pos), asFloat3(dir), asFloat3(color), outerBase, 0.0f, 0, depthEnabled);
-            dd::cone(asFloat3(pos), asFloat3(dir), asFloat3(color), innerBase, 0.0f, 0, depthEnabled);
+            const float outerAngleRadians = XMConvertToRadians(clampedOuterAngleDegrees);
+            const float innerAngleRadians = XMConvertToRadians(clampedInnerAngleDegrees);
+
+            const Vector3 coneDirection = forward * length;
+
+            const float outerBaseRadius = std::tan(outerAngleRadians) * length;
+            const float innerBaseRadius = std::tan(innerAngleRadians) * length;
+
+            dd::cone(asFloat3(position), asFloat3(coneDirection), asFloat3(color), outerBaseRadius, 0.0f, 0, depthEnabled);
+            dd::cone(asFloat3(position), asFloat3(coneDirection), asFloat3(color), innerBaseRadius, 0.0f, 0, depthEnabled);
             break;
         }
+
         default:
+        {
             break;
         }
+        }
+    }
+}
+
+namespace LightDebugDraw
+{
+    void drawLightWithoutDepth(const GameObject& gameObject)
+    {
+        drawLight(gameObject, false);
+    }
+
+    void drawLightWithDepth(const GameObject& gameObject)
+    {
+        drawLight(gameObject, true);
     }
 }

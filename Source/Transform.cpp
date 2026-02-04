@@ -17,21 +17,21 @@ const Matrix* Transform::getTransformation()
 }
 
 Vector3 Transform::getForward() const {
-    Vector3 f = Vector3::Transform(Vector3::Forward, m_rotation);
-    f.Normalize();
-    return f;
+    Vector3 forward = Vector3::Transform(Vector3::Forward, m_rotation);
+    forward.Normalize();
+    return forward;
 }
 
 Vector3 Transform::getUp() const {
-    Vector3 u = Vector3::Transform(Vector3::Up, m_rotation);
-    u.Normalize();
-    return u;
+    Vector3 up = Vector3::Transform(Vector3::Up, m_rotation);
+    up.Normalize();
+    return up;
 }
 
 Vector3 Transform::getRight() const {
-    Vector3 r = Vector3::Transform(Vector3::Right, m_rotation);
-    r.Normalize();
-    return r;
+    Vector3 right = Vector3::Transform(Vector3::Right, m_rotation);
+    right.Normalize();
+    return right;
 }
 
 const Transform* Transform::findChild(const char* name)
@@ -120,10 +120,13 @@ const Vector3 Transform::convertQuaternionToEulerAngles(Quaternion* rotation)
 
     float sinp = 2.0f * (q.w * q.y - q.z * q.x);
     float pitchRadians;
-    if (std::abs(sinp) >= 1.0f)
+    if (std::abs(sinp) >= 1.0f) {
         pitchRadians = std::copysign(DirectX::XM_PIDIV2, sinp);
+    }
     else
+    {
         pitchRadians = std::asin(sinp);
+    }
 
     float siny_cosp = 2.0f * (q.w * q.z + q.x * q.y);
     float cosy_cosp = 1.0f - 2.0f * (q.y * q.y + q.z * q.z);

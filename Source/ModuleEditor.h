@@ -83,6 +83,7 @@ private:
 	bool showLightsWindow = true;
 
 	//ImGuizmo
+	void setGizmoSelection(GizmoTarget target, ImGuizmo::OPERATION operation);
 	ImGuizmo::OPERATION gizmoOp = ImGuizmo::TRANSLATE;
 	ImGuizmo::MODE gizmoMode = ImGuizmo::LOCAL;
 	bool showGizmo = true;

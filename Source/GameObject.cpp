@@ -49,9 +49,9 @@ bool GameObject::RemoveComponent(Component* componentToRemove)
 
 Component* GameObject::FindComponent(ComponentType type)
 {
-    for (Component* c : m_components) {
-        if (c && c->getType() == type) {
-            return c;
+    for (Component* component : m_components) {
+        if (component && component->getType() == type) {
+            return component;
         }
     }
     return nullptr;
@@ -59,9 +59,9 @@ Component* GameObject::FindComponent(ComponentType type)
 
 const Component* GameObject::FindComponent(ComponentType type) const
 {
-    for (Component* c : m_components) {
-        if (c && c->getType() == type) {
-            return c;
+    for (Component* component : m_components) {
+        if (component && component->getType() == type) {
+            return component;
         }
     }
     return nullptr;
